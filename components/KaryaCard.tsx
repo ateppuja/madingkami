@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Karya } from '@/lib/types';
-import { Image as ImageIcon, Video, BookOpen, Code2, Heart, Eye, ArrowUpRight, Star } from 'lucide-react';
+import { Image as ImageIcon, Video, BookOpen, Heart, Eye, ArrowUpRight, Star } from 'lucide-react';
 
 interface KaryaCardProps {
   karya: Karya;
@@ -18,8 +18,6 @@ export default function KaryaCard({ karya }: KaryaCardProps) {
         return { label: 'Video', icon: Video, bg: 'bg-purple-50 text-purple-700 border-purple-200' };
       case 'tulisan':
         return { label: 'Tulisan', icon: BookOpen, bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
-      case 'aplikasi':
-        return { label: 'Aplikasi', icon: Code2, bg: 'bg-amber-50 text-amber-800 border-amber-200' };
       default:
         return { label: 'Karya', icon: ImageIcon, bg: 'bg-slate-100 text-slate-700 border-slate-200' };
     }
@@ -67,17 +65,6 @@ export default function KaryaCard({ karya }: KaryaCardProps) {
               "{karya.textContent || karya.description}"
             </p>
             <span className="text-[10px] text-[#548716] font-extrabold uppercase tracking-wider">Karya Sastra</span>
-          </div>
-        ) : karya.type === 'aplikasi' ? (
-          <div className="w-full h-full bg-gradient-to-br from-amber-50 to-orange-50 flex flex-col items-center justify-center p-4 gap-2 group-hover:scale-105 transition-transform duration-500">
-            {karya.contentUrl ? (
-              <img src={karya.contentUrl} alt={karya.title} className="w-full h-full object-cover opacity-80" />
-            ) : (
-              <div className="p-4 bg-amber-100 text-amber-700 rounded-2xl border border-amber-200">
-                <Code2 className="w-8 h-8" />
-              </div>
-            )}
-            <span className="text-xs text-amber-900 font-bold z-10">Interactive Software App</span>
           </div>
         ) : (
           <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-400">

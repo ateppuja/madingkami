@@ -7,7 +7,6 @@ import { Karya } from '@/lib/types';
 import GambarViewer from '@/components/viewers/GambarViewer';
 import VideoViewer from '@/components/viewers/VideoViewer';
 import TulisanViewer from '@/components/viewers/TulisanViewer';
-import AplikasiViewer from '@/components/viewers/AplikasiViewer';
 import { ArrowLeft, Heart, Eye, Calendar, User, Share2, Leaf } from 'lucide-react';
 
 export default function KaryaDetailPage() {
@@ -136,7 +135,6 @@ export default function KaryaDetailPage() {
         {karya.type === 'gambar' && <GambarViewer karya={karya} />}
         {karya.type === 'video' && <VideoViewer karya={karya} />}
         {karya.type === 'tulisan' && <TulisanViewer karya={karya} />}
-        {karya.type === 'aplikasi' && <AplikasiViewer karya={karya} />}
       </section>
 
       {/* Karya Description Box */}

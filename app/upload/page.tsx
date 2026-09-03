@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { karyaService } from '@/lib/services/karyaService';
 import { INITIAL_CATEGORIES } from '@/lib/mockData';
 import { KaryaType } from '@/lib/types';
-import { Upload, Image as ImageIcon, Video, BookOpen, Code2, ArrowLeft, Send, CheckCircle2, Loader2, Link as LinkIcon, HardDrive } from 'lucide-react';
+import { Upload, Image as ImageIcon, Video, BookOpen, ArrowLeft, Send, CheckCircle2, Loader2, Link as LinkIcon, HardDrive } from 'lucide-react';
 
 export default function UploadPage() {
   const router = useRouter();
@@ -19,8 +19,6 @@ export default function UploadPage() {
 
   const [contentUrl, setContentUrl] = useState('');
   const [textContent, setTextContent] = useState('');
-  const [appDemoUrl, setAppDemoUrl] = useState('');
-  const [appRepoUrl, setAppRepoUrl] = useState('');
 
   // Storage Upload State
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
@@ -75,11 +73,6 @@ export default function UploadPage() {
       return;
     }
 
-    if (selectedType === 'aplikasi' && !appDemoUrl.trim()) {
-      setErrorMessage('Mohon masukkan Tautan Live Demo untuk karya aplikasi Anda.');
-      return;
-    }
-
     try {
       setIsSubmitting(true);
       await karyaService.createKarya({
@@ -91,8 +84,6 @@ export default function UploadPage() {
         type: selectedType,
         contentUrl: contentUrl.trim() || undefined,
         textContent: textContent.trim() || undefined,
-        appDemoUrl: appDemoUrl.trim() || undefined,
-        appRepoUrl: appRepoUrl.trim() || undefined,
       });
 
       setSuccessMessage(true);
@@ -123,11 +114,11 @@ export default function UploadPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800">Upload Karya Siswa</h1>
             <span className="px-2.5 py-0.5 text-xs bg-[#eef5e4] text-[#548716] font-bold rounded-full border border-[#d2e4b8]">
-              Storage InsForge Active
+              WhiteBee Form
             </span>
           </div>
           <p className="text-slate-600 text-xs sm:text-sm mt-1">
-            Unggah gambar karya langsung ke Storage InsForge untuk diverifikasi oleh Admin.
+            Unggah karya siswa (Gambar, Video, atau Tulisan) untuk diverifikasi oleh Admin.
           </p>
         </div>
       </div>
@@ -152,12 +143,11 @@ export default function UploadPage() {
             1. Pilih Format Media Karya:
           </label>
           
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
               { id: 'gambar' as const, label: 'Gambar / Artwork', icon: ImageIcon, color: 'text-sky-600' },
               { id: 'video' as const, label: 'Video / Film', icon: Video, color: 'text-purple-600' },
               { id: 'tulisan' as const, label: 'Tulisan / Puisi', icon: BookOpen, color: 'text-emerald-600' },
-              { id: 'aplikasi' as const, label: 'Aplikasi / Game', icon: Code2, color: 'text-amber-600' },
             ].map((media) => {
               const Icon = media.icon;
               const isSelected = selectedType === media.id;
@@ -302,43 +292,6 @@ export default function UploadPage() {
                 placeholder="Tuliskan bait puisi atau cerita karya Anda di sini..."
                 className="w-full px-4 py-3 bg-white border border-slate-300 focus:border-[#659f1d] rounded-xl text-sm text-slate-800 focus:outline-none font-serif leading-relaxed"
               />
-            </div>
-          )}
-
-          {selectedType === 'aplikasi' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Tautan Live Demo (Wajib):</label>
-                <input
-                  type="url"
-                  value={appDemoUrl}
-                  onChange={(e) => setAppDemoUrl(e.target.value)}
-                  placeholder="https://my-student-app.vercel.app"
-                  className="w-full px-4 py-2.5 bg-white border border-slate-300 focus:border-[#659f1d] rounded-xl text-sm text-slate-800 focus:outline-none"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Tautan Repository GitHub (Opsional):</label>
-                <input
-                  type="url"
-                  value={appRepoUrl}
-                  onChange={(e) => setAppRepoUrl(e.target.value)}
-                  placeholder="https://github.com/username/project"
-                  className="w-full px-4 py-2.5 bg-white border border-slate-300 focus:border-[#659f1d] rounded-xl text-sm text-slate-800 focus:outline-none"
-                />
-              </div>
-
-              <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">URL Screenshot / Cover Aplikasi (Opsional):</label>
-                <input
-                  type="url"
-                  value={contentUrl}
-                  onChange={(e) => setContentUrl(e.target.value)}
-                  placeholder="https://images.unsplash.com/... (Cover preview app)"
-                  className="w-full px-4 py-2.5 bg-white border border-slate-300 focus:border-[#659f1d] rounded-xl text-sm text-slate-800 focus:outline-none"
-                />
-              </div>
             </div>
           )}
 

@@ -7,7 +7,7 @@ import { Karya, KaryaType } from '@/lib/types';
 import MediaFilterTabs from '@/components/MediaFilterTabs';
 import KaryaCard from '@/components/KaryaCard';
 import { INITIAL_CATEGORIES } from '@/lib/mockData';
-import { Leaf, Search, Upload, BookOpen, Star, ArrowUpRight, CheckCircle2, Clock, Layers, Sparkles } from 'lucide-react';
+import { Leaf, Search, Upload, BookOpen, Layers } from 'lucide-react';
 
 export default function Home() {
   const [karyaList, setKaryaList] = useState<Karya[]>([]);
@@ -31,14 +31,11 @@ export default function Home() {
     fetchKarya();
   }, [activeType, selectedCategory, searchQuery]);
 
-  const featuredItems = karyaList.filter(k => k.featured);
-
   const counts = {
     all: karyaList.length,
     gambar: karyaList.filter(k => k.type === 'gambar').length,
     video: karyaList.filter(k => k.type === 'video').length,
     tulisan: karyaList.filter(k => k.type === 'tulisan').length,
-    aplikasi: karyaList.filter(k => k.type === 'aplikasi').length,
   };
 
   return (
@@ -63,7 +60,7 @@ export default function Home() {
           </div>
           
           <p className="text-slate-700 text-sm sm:text-base leading-relaxed">
-            Wadah ekspresi digital siswa WhiteBee School Of Life untuk memamerkan <strong>Gambar & Artwork</strong>, <strong>Video Dokumenter</strong>, <strong>Karya Sastra & Puisi</strong>, dan <strong>Aplikasi Software</strong>.
+            Wadah ekspresi digital siswa WhiteBee School Of Life untuk memamerkan <strong>Gambar & Artwork</strong>, <strong>Video Dokumenter</strong>, dan <strong>Karya Sastra & Puisi</strong>.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">

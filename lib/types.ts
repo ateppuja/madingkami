@@ -1,4 +1,4 @@
-export type KaryaType = 'gambar' | 'video' | 'tulisan' | 'aplikasi';
+export type KaryaType = 'gambar' | 'video' | 'tulisan';
 
 export type KaryaStatus = 'pending' | 'approved' | 'rejected';
 
@@ -35,8 +35,8 @@ export interface Karya {
   contentUrl?: string; // Main image or video embed URL
   mediaUrls?: string[]; // Gallery images
   textContent?: string; // Full article / poem / text
-  appDemoUrl?: string; // Live demo link for app
-  appRepoUrl?: string; // GitHub repository link for app
+  appDemoUrl?: string;
+  appRepoUrl?: string;
   status: KaryaStatus;
   rejectionReason?: string;
   likesCount: number;

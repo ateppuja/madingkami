@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { KaryaType } from '@/lib/types';
-import { LayoutGrid, Image as ImageIcon, Video, BookOpen, Code2 } from 'lucide-react';
+import { LayoutGrid, Image as ImageIcon, Video, BookOpen } from 'lucide-react';
 
 interface MediaFilterTabsProps {
   activeType: KaryaType | 'all';
@@ -16,7 +16,6 @@ export default function MediaFilterTabs({ activeType, onSelectType, counts }: Me
     { id: 'gambar' as const, label: 'Gambar & Artwork', icon: ImageIcon, color: 'text-sky-600' },
     { id: 'video' as const, label: 'Video & Film', icon: Video, color: 'text-purple-600' },
     { id: 'tulisan' as const, label: 'Tulisan & Puisi', icon: BookOpen, color: 'text-emerald-600' },
-    { id: 'aplikasi' as const, label: 'Aplikasi & Game', icon: Code2, color: 'text-amber-600' },
   ];
 
   return (
