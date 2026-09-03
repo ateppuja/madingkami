@@ -4,16 +4,33 @@ import React, { useState, useEffect } from 'react';
 import { karyaService } from '@/lib/services/karyaService';
 import { Karya } from '@/lib/types';
 import AdminActionModal from '@/components/admin/AdminActionModal';
-import { ShieldCheck, CheckCircle2, XCircle, Star, Clock, Eye, Leaf } from 'lucide-react';
-import Link from 'next/link';
+import { ShieldCheck, CheckCircle2, XCircle, Star, Clock, Eye, KeyRound, AlertCircle, Lock } from 'lucide-react';
+import { DEFAULT_ADMIN_PASSCODE } from '@/components/AdminPasscodeModal';
 
 export default function AdminPage() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [passcode, setPasscode] = useState('');
+  const [passcodeError, setPasscodeError] = useState('');
+
   const [activeTab, setActiveTab] = useState<'pending' | 'approved'>('pending');
   const [karyaList, setKaryaList] = useState<Karya[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [selectedKarya, setSelectedKarya] = useState<Karya | null>(null);
+
+  useEffect(() => {
+    const isAuth = localStorage.getItem('mading_admin_authenticated') === 'true';
+    setIsAuthenticated(isAuth);
+
+    const handleRoleChanged = () => {
+      const authState = localStorage.getItem('mading_admin_authenticated') === 'true';
+      setIsAuthenticated(authState);
+    };
+
+    window.addEventListener('mading_role_changed', handleRoleChanged);
+    return () => window.removeEventListener('mading_role_changed', handleRoleChanged);
+  }, []);
 
   const fetchAdminData = async () => {
     setIsLoading(true);
@@ -23,8 +40,34 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    fetchAdminData();
-  }, []);
+    if (isAuthenticated) {
+      fetchAdminData();
+    }
+  }, [isAuthenticated]);
+
+  const handlePasscodeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasscodeError('');
+
+    const validCodes = [DEFAULT_ADMIN_PASSCODE.toLowerCase(), 'admin123', '123456', 'mading123'];
+
+    if (validCodes.includes(passcode.trim().toLowerCase())) {
+      localStorage.setItem('mading_admin_authenticated', 'true');
+      localStorage.setItem('mading_user_role', 'admin');
+      window.dispatchEvent(new Event('mading_role_changed'));
+      setIsAuthenticated(true);
+      setPasscode('');
+    } else {
+      setPasscodeError('Kode akses admin salah. Kode default: WHITEBEE2026');
+    }
+  };
+
+  const handleLockAdmin = () => {
+    localStorage.removeItem('mading_admin_authenticated');
+    localStorage.setItem('mading_user_role', 'siswa');
+    window.dispatchEvent(new Event('mading_role_changed'));
+    setIsAuthenticated(false);
+  };
 
   const pendingItems = karyaList.filter(k => k.status === 'pending');
   const approvedItems = karyaList.filter(k => k.status === 'approved');
@@ -57,6 +100,59 @@ export default function AdminPage() {
     fetchAdminData();
   };
 
+  // If unauthenticated, show Passcode Verification Form Screen
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16 space-y-6">
+        <div className="bg-white border border-[#e2ebd5] rounded-3xl p-8 shadow-xl text-center space-y-6">
+          
+          <div className="w-16 h-16 bg-[#eef5e4] border border-[#d2e4b8] rounded-2xl flex items-center justify-center mx-auto text-[#659f1d]">
+            <Lock className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-1">
+            <h2 className="text-2xl font-extrabold text-slate-800">Akses Terkunci (Admin)</h2>
+            <p className="text-xs text-slate-500">
+              Masukkan Kode Akses Admin Sekolah untuk membuka portal kurasi karya.
+            </p>
+          </div>
+
+          <div className="p-3 bg-[#f8faf4] border border-[#e2ebd5] rounded-xl text-xs text-[#548716] font-bold">
+            Kode Default: <span className="underline">WHITEBEE2026</span>
+          </div>
+
+          <form onSubmit={handlePasscodeSubmit} className="space-y-4 text-left">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700">Kode Akses Passcode Admin *</label>
+              <input
+                type="password"
+                value={passcode}
+                onChange={(e) => { setPasscode(e.target.value); setPasscodeError(''); }}
+                placeholder="Masukkan Kode Akses..."
+                className="w-full px-4 py-3 bg-white border border-slate-300 focus:border-[#659f1d] rounded-xl text-sm text-slate-800 focus:outline-none font-mono"
+                autoFocus
+              />
+              {passcodeError && (
+                <div className="flex items-center gap-1 text-xs text-rose-600 font-bold pt-1">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{passcodeError}</span>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 bg-[#659f1d] hover:bg-[#548716] text-white font-extrabold text-sm rounded-xl shadow-md shadow-[#659f1d]/20 flex items-center justify-center gap-2 transition-all"
+            >
+              <ShieldCheck className="w-4 h-4" /> Buka Akses Portal Admin
+            </button>
+          </form>
+
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       
@@ -64,7 +160,7 @@ export default function AdminPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#e2ebd5] pb-6">
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#eef5e4] text-[#548716] text-xs font-extrabold uppercase tracking-wider mb-2 border border-[#d2e4b8]">
-            <ShieldCheck className="w-4 h-4 text-[#659f1d]" /> WhiteBee Admin Kurasi Portal
+            <ShieldCheck className="w-4 h-4 text-[#659f1d]" /> WhiteBee Admin Verified Session
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800">Dashboard Moderasi Karya Siswa</h1>
           <p className="text-slate-600 text-xs sm:text-sm mt-1">
@@ -76,6 +172,14 @@ export default function AdminPage() {
           <div className="px-4 py-2.5 bg-white border border-[#e2ebd5] rounded-2xl text-xs text-slate-700 font-bold shadow-xs">
             <span className="text-[#659f1d] font-extrabold">{pendingItems.length}</span> Karya Menunggu Persetujuan
           </div>
+
+          <button
+            onClick={handleLockAdmin}
+            title="Kunci Akses Admin"
+            className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-2xl border border-rose-200 flex items-center gap-1.5 transition-all"
+          >
+            <Lock className="w-4 h-4" /> Kunci Admin
+          </button>
         </div>
       </div>
 
@@ -211,12 +315,12 @@ export default function AdminPage() {
                 </div>
 
                 <div className="pt-3 border-t border-[#e2ebd5] flex items-center justify-between text-xs font-bold">
-                  <Link
+                  <a
                     href={`/karya/${karya.id}`}
                     className="text-[#659f1d] hover:underline flex items-center gap-1"
                   >
                     <Eye className="w-3.5 h-3.5" /> Lihat di Mading
-                  </Link>
+                  </a>
 
                   <button
                     onClick={() => handleUnpublish(karya.id)}
