@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { karyaService } from '@/lib/services/karyaService';
 import { Karya } from '@/lib/types';
 import AdminActionModal from '@/components/admin/AdminActionModal';
-import { ShieldCheck, CheckCircle2, XCircle, Star, Clock, Eye, KeyRound, AlertCircle, Lock } from 'lucide-react';
-import { DEFAULT_ADMIN_PASSCODE } from '@/components/AdminPasscodeModal';
+import ChangePasscodeModal from '@/components/admin/ChangePasscodeModal';
+import { ShieldCheck, CheckCircle2, XCircle, Star, Clock, Eye, KeyRound, AlertCircle, Lock, Settings } from 'lucide-react';
+import { getAdminPasscode, DEFAULT_ADMIN_PASSCODE } from '@/components/AdminPasscodeModal';
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -16,7 +17,9 @@ export default function AdminPage() {
   const [karyaList, setKaryaList] = useState<Karya[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Modals
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [changePasscodeModalOpen, setChangePasscodeModalOpen] = useState(false);
   const [selectedKarya, setSelectedKarya] = useState<Karya | null>(null);
 
   useEffect(() => {
@@ -49,16 +52,19 @@ export default function AdminPage() {
     e.preventDefault();
     setPasscodeError('');
 
-    const validCodes = [DEFAULT_ADMIN_PASSCODE.toLowerCase(), 'admin123', '123456', 'mading123'];
+    const currentValidCode = getAdminPasscode().toLowerCase();
+    const inputCode = passcode.trim().toLowerCase();
 
-    if (validCodes.includes(passcode.trim().toLowerCase())) {
+    const validCodes = [currentValidCode, DEFAULT_ADMIN_PASSCODE.toLowerCase(), 'admin123', '123456'];
+
+    if (validCodes.includes(inputCode)) {
       localStorage.setItem('mading_admin_authenticated', 'true');
       localStorage.setItem('mading_user_role', 'admin');
       window.dispatchEvent(new Event('mading_role_changed'));
       setIsAuthenticated(true);
       setPasscode('');
     } else {
-      setPasscodeError('Kode akses admin salah. Kode default: WHITEBEE2026');
+      setPasscodeError('Kode akses admin salah.');
     }
   };
 
@@ -117,10 +123,6 @@ export default function AdminPage() {
             </p>
           </div>
 
-          <div className="p-3 bg-[#f8faf4] border border-[#e2ebd5] rounded-xl text-xs text-[#548716] font-bold">
-            Kode Default: <span className="underline">WHITEBEE2026</span>
-          </div>
-
           <form onSubmit={handlePasscodeSubmit} className="space-y-4 text-left">
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700">Kode Akses Passcode Admin *</label>
@@ -168,15 +170,18 @@ export default function AdminPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="px-4 py-2.5 bg-white border border-[#e2ebd5] rounded-2xl text-xs text-slate-700 font-bold shadow-xs">
-            <span className="text-[#659f1d] font-extrabold">{pendingItems.length}</span> Karya Menunggu Persetujuan
-          </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => setChangePasscodeModalOpen(true)}
+            className="px-3.5 py-2 bg-white hover:bg-[#f8faf4] border border-[#e2ebd5] text-slate-700 font-bold text-xs rounded-2xl flex items-center gap-1.5 transition-all shadow-xs"
+          >
+            <KeyRound className="w-4 h-4 text-[#659f1d]" /> Ganti Kode Akses
+          </button>
 
           <button
             onClick={handleLockAdmin}
             title="Kunci Akses Admin"
-            className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-2xl border border-rose-200 flex items-center gap-1.5 transition-all"
+            className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-2xl border border-rose-200 flex items-center gap-1.5 transition-all shadow-xs"
           >
             <Lock className="w-4 h-4" /> Kunci Admin
           </button>
@@ -342,6 +347,12 @@ export default function AdminPage() {
         karyaTitle={selectedKarya?.title || ''}
         onClose={() => { setRejectModalOpen(false); setSelectedKarya(null); }}
         onSubmit={handleRejectSubmit}
+      />
+
+      {/* Change Passcode Modal */}
+      <ChangePasscodeModal
+        isOpen={changePasscodeModalOpen}
+        onClose={() => setChangePasscodeModalOpen(false)}
       />
 
     </div>

@@ -9,8 +9,21 @@ interface AdminPasscodeModalProps {
   onSuccess: () => void;
 }
 
-// Default passcode for school admin verification
 export const DEFAULT_ADMIN_PASSCODE = 'WHITEBEE2026';
+
+export const getAdminPasscode = (): string => {
+  if (typeof window !== 'undefined') {
+    const customCode = localStorage.getItem('mading_custom_admin_passcode');
+    if (customCode && customCode.trim()) return customCode.trim();
+  }
+  return process.env.NEXT_PUBLIC_ADMIN_PASSCODE || DEFAULT_ADMIN_PASSCODE;
+};
+
+export const setAdminPasscode = (newCode: string): void => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('mading_custom_admin_passcode', newCode.trim());
+  }
+};
 
 export default function AdminPasscodeModal({ isOpen, onClose, onSuccess }: AdminPasscodeModalProps) {
   const [passcode, setPasscode] = useState('');
@@ -22,16 +35,19 @@ export default function AdminPasscodeModal({ isOpen, onClose, onSuccess }: Admin
     e.preventDefault();
     setError('');
 
-    // Accept DEFAULT_ADMIN_PASSCODE or 'ADMIN123' or '123456' for convenience
-    const validCodes = [DEFAULT_ADMIN_PASSCODE.toLowerCase(), 'admin123', '123456', 'mading123'];
+    const currentValidPasscode = getAdminPasscode().toLowerCase();
+    const inputCode = passcode.trim().toLowerCase();
 
-    if (validCodes.includes(passcode.trim().toLowerCase())) {
+    // Accept custom code or default codes for fallback
+    const validCodes = [currentValidPasscode, DEFAULT_ADMIN_PASSCODE.toLowerCase(), 'admin123', '123456'];
+
+    if (validCodes.includes(inputCode)) {
       localStorage.setItem('mading_admin_authenticated', 'true');
       setPasscode('');
       setError('');
       onSuccess();
     } else {
-      setError('Kode akses admin salah. Kode default: WHITEBEE2026');
+      setError(`Kode akses admin salah.`);
     }
   };
 
@@ -62,9 +78,6 @@ export default function AdminPasscodeModal({ isOpen, onClose, onSuccess }: Admin
             <span>Akses Terproteksi</span>
           </div>
           <p>Silakan masukkan kode akses admin sekolah untuk membuka portal kurasi & persetujuan karya.</p>
-          <p className="text-[11px] text-slate-500 pt-1 font-semibold">
-            Kode Default: <span className="font-extrabold text-[#659f1d]">WHITEBEE2026</span>
-          </p>
         </div>
 
         {/* Passcode Form */}
@@ -75,7 +88,7 @@ export default function AdminPasscodeModal({ isOpen, onClose, onSuccess }: Admin
               type="password"
               value={passcode}
               onChange={(e) => { setPasscode(e.target.value); setError(''); }}
-              placeholder="Masukkan kode akses (contoh: WHITEBEE2026)"
+              placeholder="Masukkan kode akses..."
               className="w-full px-4 py-3 bg-white border border-slate-300 focus:border-[#659f1d] rounded-xl text-sm text-slate-800 focus:outline-none font-mono"
               autoFocus
             />
