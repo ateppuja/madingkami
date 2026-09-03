@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7f9f3;
+  --foreground: #1e2b20;
+  --primary-green: #659f1d;
+  --primary-green-hover: #548716;
+  --light-green-bg: #eef5e4;
+  --card-bg: #ffffff;
+  --border-color: #e2ebd5;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+/* Custom scrollbar matching WhiteBee green theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f0f4e8;
+}
+::-webkit-scrollbar-thumb {
+  background: #a3c778;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #659f1d;
+}
