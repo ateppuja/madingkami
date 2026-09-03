@@ -1,8 +1,7 @@
 import { Karya, KaryaStatus, KaryaType, Comment } from '../types';
-import { insforge, isInsForgeConfigured } from '../insforge';
 import { INITIAL_KARYA, INITIAL_COMMENTS } from '../mockData';
 
-// Local storage key for fallback mode persistence
+// Local storage key for fallback mode persistence if network is completely offline
 const STORAGE_KEY = 'mading_karya_data_v1';
 const COMMENTS_STORAGE_KEY = 'mading_comments_data_v1';
 
@@ -57,22 +56,22 @@ const saveLocalComments = (items: Comment[]) => {
 export const karyaService = {
   // Fetch all approved karya for public mading
   async getApprovedKarya(typeFilter?: KaryaType, categoryId?: string, search?: string): Promise<Karya[]> {
-    if (isInsForgeConfigured() && insforge) {
-      try {
-        let query = insforge.database.from('karya').select('*').eq('status', 'approved');
-        if (typeFilter) query = query.eq('type', typeFilter);
-        if (categoryId) query = query.eq('category_id', categoryId);
-        
-        const { data, error } = await query;
-        if (!error && data) {
-          return data as Karya[];
-        }
-      } catch (err) {
-        console.warn('InsForge database query failed, falling back to local store', err);
+    try {
+      const params = new URLSearchParams({ status: 'approved' });
+      if (typeFilter) params.append('type', typeFilter);
+      if (categoryId) params.append('category_id', categoryId);
+      if (search && search.trim()) params.append('search', search.trim());
+
+      const res = await fetch(`/api/karya?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        return data;
       }
+    } catch (err) {
+      console.warn('API fetch approved karya failed, using local store', err);
     }
 
-    // Local Mock Fallback
+    // Local Fallback
     let list = getLocalKarya().filter(k => k.status === 'approved');
     if (typeFilter) list = list.filter(k => k.type === typeFilter);
     if (categoryId) list = list.filter(k => k.categoryId === categoryId);
@@ -90,46 +89,42 @@ export const karyaService = {
 
   // Fetch pending karya for Admin Moderation queue
   async getPendingKarya(): Promise<Karya[]> {
-    if (isInsForgeConfigured() && insforge) {
-      try {
-        const { data, error } = await insforge.database
-          .from('karya')
-          .select('*')
-          .eq('status', 'pending');
-        if (!error && data) return data as Karya[];
-      } catch (err) {
-        console.warn('InsForge pending query error, fallback to mock', err);
+    try {
+      const res = await fetch('/api/karya?status=pending');
+      if (res.ok) {
+        const data = await res.json();
+        return data;
       }
+    } catch (err) {
+      console.warn('API fetch pending karya failed, using local store', err);
     }
     return getLocalKarya().filter(k => k.status === 'pending');
   },
 
   // Fetch all karya (Admin or Student view)
   async getAllKarya(): Promise<Karya[]> {
-    if (isInsForgeConfigured() && insforge) {
-      try {
-        const { data, error } = await insforge.database.from('karya').select('*');
-        if (!error && data) return data as Karya[];
-      } catch (err) {
-        console.warn('InsForge query failed, using local store', err);
+    try {
+      const res = await fetch('/api/karya');
+      if (res.ok) {
+        const data = await res.json();
+        return data;
       }
+    } catch (err) {
+      console.warn('API fetch all karya failed, using local store', err);
     }
     return getLocalKarya();
   },
 
   // Fetch single karya by ID
   async getKaryaById(id: string): Promise<Karya | null> {
-    if (isInsForgeConfigured() && insforge) {
-      try {
-        const { data, error } = await insforge.database
-          .from('karya')
-          .select('*')
-          .eq('id', id)
-          .single();
-        if (!error && data) return data as Karya;
-      } catch (err) {
-        console.warn('InsForge getById failed, using local store', err);
+    try {
+      const res = await fetch(`/api/karya/${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        return data;
       }
+    } catch (err) {
+      console.warn('API fetch karya by id failed, using local store', err);
     }
     const item = getLocalKarya().find(k => k.id === id);
     return item || null;
@@ -137,6 +132,20 @@ export const karyaService = {
 
   // Create new submission from Student
   async createKarya(newKarya: Omit<Karya, 'id' | 'createdAt' | 'updatedAt' | 'likesCount' | 'viewsCount' | 'status' | 'featured'>): Promise<Karya> {
+    try {
+      const res = await fetch('/api/karya', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newKarya),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data;
+      }
+    } catch (err) {
+      console.warn('API create karya failed, saving to local store', err);
+    }
+
     const itemToInsert: Karya = {
       ...newKarya,
       id: 'karya-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
@@ -147,40 +156,22 @@ export const karyaService = {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-
-    if (isInsForgeConfigured() && insforge) {
-      try {
-        const { data, error } = await insforge.database
-          .from('karya')
-          .insert([itemToInsert]);
-        if (!error && data && data[0]) return data[0] as Karya;
-      } catch (err) {
-        console.warn('InsForge insert error, saving to local store', err);
-      }
-    }
-
     const currentList = getLocalKarya();
-    const updated = [itemToInsert, ...currentList];
-    saveLocalKarya(updated);
+    saveLocalKarya([itemToInsert, ...currentList]);
     return itemToInsert;
   },
 
   // Update status (Approve or Reject with note)
   async updateKaryaStatus(id: string, status: KaryaStatus, rejectionReason?: string): Promise<boolean> {
-    if (isInsForgeConfigured() && insforge) {
-      try {
-        const { error } = await insforge.database
-          .from('karya')
-          .update({ 
-            status, 
-            rejection_reason: rejectionReason || null,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', id);
-        if (!error) return true;
-      } catch (err) {
-        console.warn('InsForge update status error, fallback to local', err);
-      }
+    try {
+      const res = await fetch(`/api/karya/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, rejectionReason }),
+      });
+      if (res.ok) return true;
+    } catch (err) {
+      console.warn('API update status failed, using local fallback', err);
     }
 
     const currentList = getLocalKarya();
@@ -201,30 +192,41 @@ export const karyaService = {
 
   // Toggle Featured status
   async toggleFeatured(id: string): Promise<boolean> {
-    const item = await this.getKaryaById(id);
-    if (!item) return false;
-    const newFeaturedState = !item.featured;
-
-    if (isInsForgeConfigured() && insforge) {
-      try {
-        const { error } = await insforge.database
-          .from('karya')
-          .update({ featured: newFeaturedState })
-          .eq('id', id);
-        if (!error) return true;
-      } catch (err) {
-        console.warn('InsForge toggle featured error, fallback to local', err);
-      }
+    try {
+      const res = await fetch(`/api/karya/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggle_featured' }),
+      });
+      if (res.ok) return true;
+    } catch (err) {
+      console.warn('API toggle featured failed, using local fallback', err);
     }
 
+    const item = await this.getKaryaById(id);
+    if (!item) return false;
     const currentList = getLocalKarya();
-    const updated = currentList.map(k => k.id === id ? { ...k, featured: newFeaturedState } : k);
+    const updated = currentList.map(k => k.id === id ? { ...k, featured: !k.featured } : k);
     saveLocalKarya(updated);
     return true;
   },
 
   // Increment likes count
   async incrementLikes(id: string): Promise<number> {
+    try {
+      const res = await fetch(`/api/karya/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'like' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.likesCount || 0;
+      }
+    } catch (err) {
+      console.warn('API increment likes failed, using local fallback', err);
+    }
+
     const list = getLocalKarya();
     let newLikes = 0;
     const updated = list.map(k => {
@@ -238,33 +240,25 @@ export const karyaService = {
     return newLikes;
   },
 
-  // Upload image file to InsForge Storage bucket (or local FileReader Data URL fallback)
+  // Upload image file
   async uploadImageToStorage(file: File): Promise<string> {
-    const fileExt = file.name.split('.').pop() || 'png';
-    const fileName = `karya-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-    const filePath = `uploads/${fileName}`;
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
 
-    if (isInsForgeConfigured() && insforge && (insforge as any).storage) {
-      try {
-        const { data, error } = await (insforge as any).storage
-          .from('mading-media')
-          .upload(filePath, file);
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
 
-        if (!error && data) {
-          const { data: publicUrlData } = (insforge as any).storage
-            .from('mading-media')
-            .getPublicUrl(filePath);
-          
-          if (publicUrlData && publicUrlData.publicUrl) {
-            return publicUrlData.publicUrl;
-          }
-        }
-      } catch (err) {
-        console.warn('InsForge storage upload error, falling back to FileReader Data URL', err);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) return data.url;
       }
+    } catch (err) {
+      console.warn('API upload failed, falling back to FileReader Data URL', err);
     }
 
-    // Fallback: Convert File to base64 Data URL for local preview & offline testing
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -281,23 +275,34 @@ export const karyaService = {
 
   // --- COMMENTS FEATURE ---
   async getCommentsByKaryaId(karyaId: string): Promise<Comment[]> {
-    if (isInsForgeConfigured() && insforge) {
-      try {
-        const { data, error } = await insforge.database
-          .from('comments')
-          .select('*')
-          .eq('karya_id', karyaId)
-          .order('created_at', { ascending: true });
-        if (!error && data) return data as Comment[];
-      } catch (err) {
-        console.warn('InsForge query comments failed, fallback to local', err);
+    try {
+      const res = await fetch(`/api/comments?karya_id=${karyaId}`);
+      if (res.ok) {
+        const data = await res.json();
+        return data;
       }
+    } catch (err) {
+      console.warn('API fetch comments failed, using local fallback', err);
     }
     const allComments = getLocalComments();
     return allComments.filter(c => c.karyaId === karyaId);
   },
 
   async addComment(karyaId: string, authorName: string, content: string): Promise<Comment> {
+    try {
+      const res = await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ karyaId, authorName, content }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data;
+      }
+    } catch (err) {
+      console.warn('API add comment failed, saving to local store', err);
+    }
+
     const newComment: Comment = {
       id: 'comment-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
       karyaId,
@@ -305,41 +310,21 @@ export const karyaService = {
       content: content.trim(),
       createdAt: new Date().toISOString(),
     };
-
-    if (isInsForgeConfigured() && insforge) {
-      try {
-        const { data, error } = await insforge.database
-          .from('comments')
-          .insert([{
-            id: newComment.id,
-            karya_id: karyaId,
-            author_name: newComment.authorName,
-            content: newComment.content,
-            created_at: newComment.createdAt,
-          }]);
-        if (!error && data && data[0]) return data[0] as Comment;
-      } catch (err) {
-        console.warn('InsForge insert comment error, saving local', err);
-      }
-    }
-
     const currentComments = getLocalComments();
-    const updated = [...currentComments, newComment];
-    saveLocalComments(updated);
+    saveLocalComments([...currentComments, newComment]);
     return newComment;
   },
 
   async updateComment(commentId: string, newContent: string): Promise<boolean> {
-    if (isInsForgeConfigured() && insforge) {
-      try {
-        const { error } = await insforge.database
-          .from('comments')
-          .update({ content: newContent.trim() })
-          .eq('id', commentId);
-        if (!error) return true;
-      } catch (err) {
-        console.warn('InsForge update comment error, fallback to local', err);
-      }
+    try {
+      const res = await fetch('/api/comments', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: commentId, content: newContent }),
+      });
+      if (res.ok) return true;
+    } catch (err) {
+      console.warn('API update comment failed, using local fallback', err);
     }
 
     const currentComments = getLocalComments();
@@ -349,16 +334,13 @@ export const karyaService = {
   },
 
   async deleteComment(commentId: string): Promise<boolean> {
-    if (isInsForgeConfigured() && insforge) {
-      try {
-        const { error } = await insforge.database
-          .from('comments')
-          .delete()
-          .eq('id', commentId);
-        if (!error) return true;
-      } catch (err) {
-        console.warn('InsForge delete comment error, fallback to local', err);
-      }
+    try {
+      const res = await fetch(`/api/comments?id=${commentId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) return true;
+    } catch (err) {
+      console.warn('API delete comment failed, using local fallback', err);
     }
 
     const currentComments = getLocalComments();
