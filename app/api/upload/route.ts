@@ -28,8 +28,8 @@ export async function POST(request: Request) {
     const filePath = path.join(uploadDir, filename);
     await writeFile(filePath, buffer);
 
-    // Public accessible URL for all devices
-    const publicUrl = `/uploads/${filename}`;
+    // Dynamic media URL accessible immediately on all devices
+    const publicUrl = `/api/media/${filename}`;
 
     return NextResponse.json({ url: publicUrl });
   } catch (error: any) {
