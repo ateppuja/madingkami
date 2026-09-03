@@ -3,11 +3,25 @@
 import React from 'react';
 import Link from 'next/link';
 import { Karya } from '@/lib/types';
-import { Image as ImageIcon, Video, BookOpen, Heart, Eye, ArrowUpRight, Star } from 'lucide-react';
+import { Image as ImageIcon, Video, BookOpen, Heart, Eye, ArrowUpRight, Star, Play } from 'lucide-react';
 
 interface KaryaCardProps {
   karya: Karya;
 }
+
+export const getYouTubeThumbnail = (rawUrl?: string): string | null => {
+  if (!rawUrl) return null;
+  try {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = rawUrl.match(regExp);
+    if (match && match[2].length === 11) {
+      return `https://img.youtube.com/vi/${match[2]}/hqdefault.jpg`;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+};
 
 export default function KaryaCard({ karya }: KaryaCardProps) {
   const getTypeBadge = () => {
@@ -25,6 +39,9 @@ export default function KaryaCard({ karya }: KaryaCardProps) {
 
   const badge = getTypeBadge();
   const Icon = badge.icon;
+
+  const ytThumbnail = karya.type === 'video' ? getYouTubeThumbnail(karya.contentUrl) : null;
+  const videoCoverUrl = ytThumbnail || (karya.contentUrl && karya.contentUrl.match(/\.(jpeg|jpg|gif|png|webp)/i) ? karya.contentUrl : null);
 
   return (
     <div className="group relative flex flex-col bg-white border border-[#e2ebd5] hover:border-[#659f1d]/60 rounded-2xl overflow-hidden transition-all duration-300 shadow-sm hover:shadow-xl hover:-translate-y-1">
@@ -52,12 +69,28 @@ export default function KaryaCard({ karya }: KaryaCardProps) {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         ) : karya.type === 'video' ? (
-          <div className="w-full h-full bg-gradient-to-br from-slate-100 to-purple-50 flex flex-col items-center justify-center gap-2 group-hover:scale-105 transition-transform duration-500">
-            <div className="p-4 bg-purple-100 text-purple-700 rounded-full border border-purple-200">
-              <Video className="w-8 h-8" />
+          videoCoverUrl ? (
+            <div className="relative w-full h-full">
+              <img
+                src={videoCoverUrl}
+                alt={karya.title}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+              {/* Play Button Overlay */}
+              <div className="absolute inset-0 bg-slate-900/30 flex items-center justify-center group-hover:bg-slate-900/40 transition-all">
+                <div className="w-12 h-12 rounded-full bg-white/90 text-purple-700 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform pl-0.5">
+                  <Play className="w-6 h-6 fill-current" />
+                </div>
+              </div>
             </div>
-            <span className="text-xs text-purple-800 font-bold">Video Embed Player</span>
-          </div>
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-purple-900 to-slate-900 flex flex-col items-center justify-center gap-2 group-hover:scale-105 transition-transform duration-500">
+              <div className="p-4 bg-white/10 text-white rounded-full backdrop-blur-sm border border-white/20">
+                <Play className="w-8 h-8 fill-current pl-0.5" />
+              </div>
+              <span className="text-xs text-purple-200 font-bold">Putar Video Karya</span>
+            </div>
+          )
         ) : karya.type === 'tulisan' ? (
           <div className="w-full h-full bg-gradient-to-br from-[#f8faf4] to-[#edf5e3] p-5 flex flex-col justify-between group-hover:scale-105 transition-transform duration-500">
             <BookOpen className="w-8 h-8 text-[#659f1d]/40" />
