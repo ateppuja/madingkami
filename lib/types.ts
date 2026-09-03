@@ -46,6 +46,14 @@ export interface Karya {
   updatedAt: string;
 }
 
+export interface Comment {
+  id: string;
+  karyaId: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface ModerationLog {
   id: string;
   karyaId: string;

@@ -1,4 +1,4 @@
-import { Karya, Category } from './types';
+import { Karya, Category, Comment } from './types';
 
 export const INITIAL_CATEGORIES: Category[] = [
   { id: 'cat-1', name: 'Seni & Desain', slug: 'seni', description: 'Lukisan, ilustrasi digital, dan sketsa karya siswa' },
@@ -80,5 +80,29 @@ export const INITIAL_KARYA: Karya[] = [
     featured: false,
     createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
     updatedAt: new Date(Date.now() - 86400000 * 4).toISOString(),
+  }
+];
+
+export const INITIAL_COMMENTS: Comment[] = [
+  {
+    id: 'comment-1',
+    karyaId: 'karya-3',
+    authorName: 'Rian Hidayat (Siswa)',
+    content: 'Puisinya sangat menyentuh dan mengingatkan pada kenangan sekolah!',
+    createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
+  },
+  {
+    id: 'comment-2',
+    karyaId: 'karya-3',
+    authorName: 'Ibu Rahmawati (Guru Bahasa)',
+    content: 'Bait puisinya memiliki rima yang bagus dan gaya bahasa yang indah. Selamat karya yang luar biasa!',
+    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+  },
+  {
+    id: 'comment-3',
+    karyaId: 'karya-1',
+    authorName: 'Farhan DKV',
+    content: 'Pencahayaan dan pemilihan warna cyberpunk-nya keren sekali!',
+    createdAt: new Date(Date.now() - 3600000 * 10).toISOString(),
   }
 ];

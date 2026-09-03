@@ -1,9 +1,10 @@
-import { Karya, KaryaStatus, KaryaType } from '../types';
+import { Karya, KaryaStatus, KaryaType, Comment } from '../types';
 import { insforge, isInsForgeConfigured } from '../insforge';
-import { INITIAL_KARYA } from '../mockData';
+import { INITIAL_KARYA, INITIAL_COMMENTS } from '../mockData';
 
 // Local storage key for fallback mode persistence
 const STORAGE_KEY = 'mading_karya_data_v1';
+const COMMENTS_STORAGE_KEY = 'mading_comments_data_v1';
 
 const getLocalKarya = (): Karya[] => {
   if (typeof window === 'undefined') return INITIAL_KARYA;
@@ -26,6 +27,30 @@ const saveLocalKarya = (items: Karya[]) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   } catch (e) {
     console.error('Error saving local karya data:', e);
+  }
+};
+
+const getLocalComments = (): Comment[] => {
+  if (typeof window === 'undefined') return INITIAL_COMMENTS;
+  try {
+    const data = localStorage.getItem(COMMENTS_STORAGE_KEY);
+    if (!data) {
+      localStorage.setItem(COMMENTS_STORAGE_KEY, JSON.stringify(INITIAL_COMMENTS));
+      return INITIAL_COMMENTS;
+    }
+    return JSON.parse(data);
+  } catch (e) {
+    console.error('Error loading local comments data:', e);
+    return INITIAL_COMMENTS;
+  }
+};
+
+const saveLocalComments = (items: Comment[]) => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(COMMENTS_STORAGE_KEY, JSON.stringify(items));
+  } catch (e) {
+    console.error('Error saving local comments data:', e);
   }
 };
 
@@ -252,5 +277,93 @@ export const karyaService = {
       reader.onerror = (error) => reject(error);
       reader.readAsDataURL(file);
     });
+  },
+
+  // --- COMMENTS FEATURE ---
+  async getCommentsByKaryaId(karyaId: string): Promise<Comment[]> {
+    if (isInsForgeConfigured() && insforge) {
+      try {
+        const { data, error } = await insforge.database
+          .from('comments')
+          .select('*')
+          .eq('karya_id', karyaId)
+          .order('created_at', { ascending: true });
+        if (!error && data) return data as Comment[];
+      } catch (err) {
+        console.warn('InsForge query comments failed, fallback to local', err);
+      }
+    }
+    const allComments = getLocalComments();
+    return allComments.filter(c => c.karyaId === karyaId);
+  },
+
+  async addComment(karyaId: string, authorName: string, content: string): Promise<Comment> {
+    const newComment: Comment = {
+      id: 'comment-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      karyaId,
+      authorName: authorName.trim(),
+      content: content.trim(),
+      createdAt: new Date().toISOString(),
+    };
+
+    if (isInsForgeConfigured() && insforge) {
+      try {
+        const { data, error } = await insforge.database
+          .from('comments')
+          .insert([{
+            id: newComment.id,
+            karya_id: karyaId,
+            author_name: newComment.authorName,
+            content: newComment.content,
+            created_at: newComment.createdAt,
+          }]);
+        if (!error && data && data[0]) return data[0] as Comment;
+      } catch (err) {
+        console.warn('InsForge insert comment error, saving local', err);
+      }
+    }
+
+    const currentComments = getLocalComments();
+    const updated = [...currentComments, newComment];
+    saveLocalComments(updated);
+    return newComment;
+  },
+
+  async updateComment(commentId: string, newContent: string): Promise<boolean> {
+    if (isInsForgeConfigured() && insforge) {
+      try {
+        const { error } = await insforge.database
+          .from('comments')
+          .update({ content: newContent.trim() })
+          .eq('id', commentId);
+        if (!error) return true;
+      } catch (err) {
+        console.warn('InsForge update comment error, fallback to local', err);
+      }
+    }
+
+    const currentComments = getLocalComments();
+    const updated = currentComments.map(c => c.id === commentId ? { ...c, content: newContent.trim() } : c);
+    saveLocalComments(updated);
+    return true;
+  },
+
+  async deleteComment(commentId: string): Promise<boolean> {
+    if (isInsForgeConfigured() && insforge) {
+      try {
+        const { error } = await insforge.database
+          .from('comments')
+          .delete()
+          .eq('id', commentId);
+        if (!error) return true;
+      } catch (err) {
+        console.warn('InsForge delete comment error, fallback to local', err);
+      }
+    }
+
+    const currentComments = getLocalComments();
+    const updated = currentComments.filter(c => c.id !== commentId);
+    saveLocalComments(updated);
+    return true;
   }
 };

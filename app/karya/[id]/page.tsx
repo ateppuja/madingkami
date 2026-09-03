@@ -7,6 +7,7 @@ import { Karya } from '@/lib/types';
 import GambarViewer from '@/components/viewers/GambarViewer';
 import VideoViewer from '@/components/viewers/VideoViewer';
 import TulisanViewer from '@/components/viewers/TulisanViewer';
+import CommentsSection from '@/components/CommentsSection';
 import { ArrowLeft, Heart, Eye, Calendar, User, Share2, Leaf } from 'lucide-react';
 
 export default function KaryaDetailPage() {
@@ -169,6 +170,9 @@ export default function KaryaDetailPage() {
           <span>{likesCount} Menyukai</span>
         </button>
       </section>
+
+      {/* Visitor Comments & Admin Moderation Section */}
+      <CommentsSection karyaId={karya.id} />
 
     </div>
   );
