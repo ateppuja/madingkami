@@ -53,8 +53,58 @@ const saveLocalComments = (items: Comment[]) => {
   }
 };
 
+// Client-side Image Compression Helper: Resizes large camera photos to ~1200px / ~100KB
+export const compressImage = (file: File, maxWidth = 1200, quality = 0.75): Promise<string> => {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') return resolve('');
+
+    // Small files (< 100KB) don't need canvas resizing
+    if (!file.type.startsWith('image/') || file.size < 100 * 1024) {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string) || '');
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxWidth) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxWidth) / height);
+            height = maxWidth;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } else {
+          resolve((event.target?.result as string) || '');
+        }
+      };
+      img.onerror = () => resolve((event.target?.result as string) || '');
+    };
+    reader.onerror = () => resolve('');
+  });
+};
+
 // Helper: Fetch with AbortController timeout to prevent slow network hanging
-const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeoutMs = 3000): Promise<Response> => {
+const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeoutMs = 5000): Promise<Response> => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -79,7 +129,7 @@ export const karyaService = {
       if (categoryId) params.append('category_id', categoryId);
       if (search && search.trim()) params.append('search', search.trim());
 
-      const res = await fetchWithTimeout(`/api/karya?${params.toString()}`, { cache: 'no-store' }, 3000);
+      const res = await fetchWithTimeout(`/api/karya?${params.toString()}`, { cache: 'no-store' }, 4000);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) return data;
@@ -107,7 +157,7 @@ export const karyaService = {
   // Fetch pending karya for Admin Moderation queue
   async getPendingKarya(): Promise<Karya[]> {
     try {
-      const res = await fetchWithTimeout('/api/karya?status=pending', { cache: 'no-store' }, 3000);
+      const res = await fetchWithTimeout('/api/karya?status=pending', { cache: 'no-store' }, 4000);
       if (res.ok) {
         const data = await res.json();
         return data;
@@ -121,7 +171,7 @@ export const karyaService = {
   // Fetch all karya (Admin or Student view)
   async getAllKarya(): Promise<Karya[]> {
     try {
-      const res = await fetchWithTimeout('/api/karya', { cache: 'no-store' }, 3000);
+      const res = await fetchWithTimeout('/api/karya', { cache: 'no-store' }, 4000);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) return data;
@@ -135,7 +185,7 @@ export const karyaService = {
   // Fetch single karya by ID
   async getKaryaById(id: string): Promise<Karya | null> {
     try {
-      const res = await fetchWithTimeout(`/api/karya/${id}`, { cache: 'no-store' }, 3000);
+      const res = await fetchWithTimeout(`/api/karya/${id}`, { cache: 'no-store' }, 4000);
       if (res.ok) {
         const data = await res.json();
         return data;
@@ -160,7 +210,7 @@ export const karyaService = {
       updatedAt: new Date().toISOString(),
     };
 
-    // Save to local store immediately for instant UX
+    // Save to local store immediately for 0ms instant UX
     const currentList = getLocalKarya();
     saveLocalKarya([itemToInsert, ...currentList]);
 
@@ -169,7 +219,7 @@ export const karyaService = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newKarya),
-      }, 5000);
+      }, 10000);
       if (res.ok) {
         const data = await res.json();
         return data;
@@ -183,7 +233,6 @@ export const karyaService = {
 
   // Update status (Approve or Reject with note)
   async updateKaryaStatus(id: string, status: KaryaStatus, rejectionReason?: string): Promise<boolean> {
-    // Update local store immediately for instant UX feedback
     const currentList = getLocalKarya();
     const updated = currentList.map(k => {
       if (k.id === id) {
@@ -203,7 +252,7 @@ export const karyaService = {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, rejectionReason }),
-      }, 4000);
+      }, 5000);
       if (res.ok) return true;
     } catch (err) {
       console.warn('API update status failed, updated locally', err);
@@ -227,7 +276,7 @@ export const karyaService = {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ featured: newFeaturedState }),
-      }, 4000);
+      }, 5000);
       if (res.ok) return true;
     } catch (err) {
       console.warn('API toggle featured failed, updated locally', err);
@@ -245,7 +294,7 @@ export const karyaService = {
     try {
       const res = await fetchWithTimeout(`/api/karya/${id}`, {
         method: 'DELETE',
-      }, 4000);
+      }, 5000);
       if (res.ok) return true;
     } catch (err) {
       console.warn('API delete karya failed, deleted locally', err);
@@ -269,26 +318,15 @@ export const karyaService = {
     return newLikes;
   },
 
-  // Upload image file to InsForge Storage bucket (or local FileReader Data URL fallback)
+  // Upload image file with automatic client-side compression
   async uploadImageToStorage(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          resolve(reader.result);
-        } else {
-          reject(new Error('Failed to convert image to Data URL'));
-        }
-      };
-      reader.onerror = (error) => reject(error);
-      reader.readAsDataURL(file);
-    });
+    return compressImage(file, 1200, 0.75);
   },
 
   // --- COMMENTS FEATURE ---
   async getCommentsByKaryaId(karyaId: string): Promise<Comment[]> {
     try {
-      const res = await fetchWithTimeout(`/api/comments?karya_id=${karyaId}`, { cache: 'no-store' }, 3000);
+      const res = await fetchWithTimeout(`/api/comments?karya_id=${karyaId}`, { cache: 'no-store' }, 4000);
       if (res.ok) {
         const data = await res.json();
         return data;
@@ -317,7 +355,7 @@ export const karyaService = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ karyaId, authorName, content }),
-      }, 4000);
+      }, 5000);
       if (res.ok) {
         const data = await res.json();
         return data;
@@ -339,7 +377,7 @@ export const karyaService = {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: commentId, content: newContent }),
-      }, 4000);
+      }, 5000);
       if (res.ok) return true;
     } catch (err) {
       console.warn('API update comment failed, updated locally', err);
@@ -356,7 +394,7 @@ export const karyaService = {
     try {
       const res = await fetchWithTimeout(`/api/comments?id=${commentId}`, {
         method: 'DELETE',
-      }, 4000);
+      }, 5000);
       if (res.ok) return true;
     } catch (err) {
       console.warn('API delete comment failed, deleted locally', err);
