@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { karyaService } from '@/lib/services/karyaService';
 import { INITIAL_CATEGORIES } from '@/lib/mockData';
 import { KaryaType } from '@/lib/types';
-import { Upload, Image as ImageIcon, Video, BookOpen, ArrowLeft, Send, CheckCircle2, Loader2, Link as LinkIcon, HardDrive } from 'lucide-react';
+import { Upload, Image as ImageIcon, Video, BookOpen, ArrowLeft, Send, CheckCircle2, Loader2, Link as LinkIcon, HardDrive, Trash2, Plus } from 'lucide-react';
 
 export default function UploadPage() {
   const router = useRouter();
@@ -18,6 +18,8 @@ export default function UploadPage() {
   const [categoryId, setCategoryId] = useState(INITIAL_CATEGORIES[0].id);
 
   const [contentUrl, setContentUrl] = useState('');
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  const [newUrlInput, setNewUrlInput] = useState('');
   const [textContent, setTextContent] = useState('');
 
   // Storage Upload State
@@ -29,23 +31,50 @@ export default function UploadPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState(false);
 
-  // File Upload Handler to InsForge Storage
+  // File Upload Handler for Single or Multiple Files to InsForge Storage
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     try {
       setIsUploadingFile(true);
-      setUploadStatusText('Mengunggah berkas gambar ke Storage InsForge...');
+      const uploadedList: string[] = [];
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setUploadStatusText(`Mengunggah gambar (${i + 1}/${files.length}): ${file.name}...`);
+        const publicUrl = await karyaService.uploadImageToStorage(file);
+        uploadedList.push(publicUrl);
+      }
 
-      const publicUrl = await karyaService.uploadImageToStorage(file);
-      setContentUrl(publicUrl);
-      setUploadStatusText('✅ Berkas gambar berhasil diunggah ke Storage InsForge!');
+      setMediaUrls(prev => [...prev, ...uploadedList]);
+      if (!contentUrl && uploadedList.length > 0) {
+        setContentUrl(uploadedList[0]);
+      }
+      setUploadStatusText(`✅ Berhasil mengunggah ${uploadedList.length} gambar ke Storage InsForge!`);
     } catch (err) {
       console.error('Upload storage error:', err);
-      setErrorMessage('Gagal mengunggah file gambar ke storage. Silakan coba lagi.');
+      setErrorMessage('Gagal mengunggah file gambar. Silakan coba lagi.');
     } finally {
       setIsUploadingFile(false);
+    }
+  };
+
+  const handleAddUrl = () => {
+    if (!newUrlInput.trim()) return;
+    const url = newUrlInput.trim();
+    setMediaUrls(prev => [...prev, url]);
+    if (!contentUrl) setContentUrl(url);
+    setNewUrlInput('');
+  };
+
+  const handleRemoveImage = (indexToRemove: number) => {
+    const updated = mediaUrls.filter((_, idx) => idx !== indexToRemove);
+    setMediaUrls(updated);
+    if (updated.length > 0) {
+      setContentUrl(updated[0]);
+    } else {
+      setContentUrl('');
     }
   };
 
@@ -58,8 +87,10 @@ export default function UploadPage() {
       return;
     }
 
-    if (selectedType === 'gambar' && !contentUrl.trim()) {
-      setErrorMessage('Mohon unggah berkas gambar atau masukkan URL Gambar karya Anda.');
+    const finalMediaUrls = mediaUrls.length > 0 ? mediaUrls : (contentUrl.trim() ? [contentUrl.trim()] : []);
+
+    if (selectedType === 'gambar' && finalMediaUrls.length === 0) {
+      setErrorMessage('Mohon unggah minimal 1 berkas gambar atau masukkan URL Gambar karya Anda.');
       return;
     }
 
@@ -82,7 +113,8 @@ export default function UploadPage() {
         authorClass: authorClass.trim(),
         categoryId,
         type: selectedType,
-        contentUrl: contentUrl.trim() || undefined,
+        contentUrl: finalMediaUrls[0] || contentUrl.trim() || undefined,
+        mediaUrls: finalMediaUrls.length > 0 ? finalMediaUrls : undefined,
         textContent: textContent.trim() || undefined,
       });
 
@@ -118,7 +150,7 @@ export default function UploadPage() {
             </span>
           </div>
           <p className="text-slate-600 text-xs sm:text-sm mt-1">
-            Unggah karya siswa (Gambar, Video, atau Tulisan) untuk diverifikasi oleh Admin.
+            Unggah karya siswa (Gambar/Multi-Foto, Video, atau Tulisan) untuk diverifikasi oleh Admin.
           </p>
         </div>
       </div>
@@ -145,7 +177,7 @@ export default function UploadPage() {
           
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              { id: 'gambar' as const, label: 'Gambar / Artwork', icon: ImageIcon, color: 'text-sky-600' },
+              { id: 'gambar' as const, label: 'Gambar / Artwork (Multi-Foto)', icon: ImageIcon, color: 'text-sky-600' },
               { id: 'video' as const, label: 'Video / Film', icon: Video, color: 'text-purple-600' },
               { id: 'tulisan' as const, label: 'Tulisan / Puisi', icon: BookOpen, color: 'text-emerald-600' },
             ].map((media) => {
@@ -208,15 +240,23 @@ export default function UploadPage() {
                 </button>
               </div>
 
-              {/* Mode A: File Upload */}
+              {/* Mode A: File Upload (Multi-file enabled) */}
               {uploadMode === 'file' && (
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-700">Pilih Berkas Gambar dari Perangkat (JPG/PNG/WebP):</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700">
+                      Pilih Berkas Gambar dari Perangkat (Bisa Pilih Banyak Foto Sekaligus):
+                    </label>
+                    <span className="text-[11px] font-bold text-[#548716]">
+                      {mediaUrls.length} Gambar Dipilih
+                    </span>
+                  </div>
                   
                   <div className="relative border-2 border-dashed border-[#cbe1a5] hover:border-[#659f1d] bg-white p-6 rounded-2xl text-center space-y-2 transition-all">
                     <input
                       type="file"
                       accept="image/*"
+                      multiple
                       onChange={handleFileUpload}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                       disabled={isUploadingFile}
@@ -230,7 +270,7 @@ export default function UploadPage() {
                     ) : (
                       <div className="flex flex-col items-center gap-1">
                         <Upload className="w-8 h-8 text-[#659f1d]" />
-                        <span className="text-xs font-bold text-slate-700">Klik atau tarik file gambar ke sini</span>
+                        <span className="text-xs font-bold text-slate-700">Klik atau tarik file gambar ke sini (Bisa Pilih Banyak)</span>
                         <span className="text-[11px] text-slate-400">Otomatis tersimpan di Bucket Storage InsForge (`mading-media`)</span>
                       </div>
                     )}
@@ -242,26 +282,54 @@ export default function UploadPage() {
                 </div>
               )}
 
-              {/* Mode B: Direct URL */}
+              {/* Mode B: Direct URL Input */}
               {uploadMode === 'url' && (
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-700">URL Gambar Utama / Artwork:</label>
-                  <input
-                    type="url"
-                    value={contentUrl}
-                    onChange={(e) => setContentUrl(e.target.value)}
-                    placeholder="https://images.unsplash.com/... atau URL link foto karya Anda"
-                    className="w-full px-4 py-2.5 bg-white border border-slate-300 focus:border-[#659f1d] rounded-xl text-sm text-slate-800 focus:outline-none"
-                  />
+                  <label className="text-xs font-bold text-slate-700">URL Gambar / Artwork (Bisa Tambah Banyak URL):</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="url"
+                      value={newUrlInput}
+                      onChange={(e) => setNewUrlInput(e.target.value)}
+                      placeholder="https://images.unsplash.com/... atau URL link foto"
+                      className="flex-1 px-4 py-2.5 bg-white border border-slate-300 focus:border-[#659f1d] rounded-xl text-sm text-slate-800 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddUrl}
+                      className="px-4 py-2.5 bg-[#659f1d] hover:bg-[#548716] text-white font-bold text-xs rounded-xl flex items-center gap-1 shadow-xs"
+                    >
+                      <Plus className="w-4 h-4" /> Tambah URL
+                    </button>
+                  </div>
                 </div>
               )}
 
-              {/* Image Preview Box */}
-              {contentUrl && (
-                <div className="mt-2 space-y-1">
-                  <span className="text-[11px] font-bold text-[#548716]">Preview Gambar Hasil Upload:</span>
-                  <div className="relative max-h-56 rounded-2xl overflow-hidden border border-[#d6e7bf] bg-slate-50">
-                    <img src={contentUrl} alt="Preview Karya" className="max-h-56 w-full object-contain mx-auto" />
+              {/* Uploaded Images List Gallery Grid */}
+              {mediaUrls.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <span className="text-xs font-bold text-slate-700 block">Daftar Gambar Karya ({mediaUrls.length} Foto):</span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {mediaUrls.map((url, idx) => (
+                      <div key={idx} className="relative group rounded-xl overflow-hidden border border-[#d6e7bf] bg-white h-28 flex items-center justify-center shadow-xs">
+                        <img src={url} alt={`Karya ${idx + 1}`} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(idx)}
+                            className="p-1.5 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700 shadow-md"
+                            title="Hapus foto ini"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        {idx === 0 && (
+                          <span className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-[#659f1d] text-white text-[9px] font-extrabold rounded">
+                            Sampul Utama
+                          </span>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -299,36 +367,48 @@ export default function UploadPage() {
 
         {/* Step 3: General Metadata */}
         <div className="space-y-4">
-          <h3 className="text-xs font-bold text-[#548716] uppercase tracking-wider">
-            2. Informasi Identitas & Metadata Karya
-          </h3>
+          <h3 className="text-sm font-bold text-slate-800">2. Identitas Karya & Siswa Kreator:</h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            
-            <div className="sm:col-span-2 space-y-1.5">
+            <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700">Judul Karya *</label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Contoh: Lukisan Senja di Lapangan Sekolah"
+                placeholder="Contoh: Lukisan Senja di Sekolah"
                 className="w-full px-4 py-2.5 bg-white border border-slate-300 focus:border-[#659f1d] rounded-xl text-sm text-slate-800 focus:outline-none"
               />
             </div>
 
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700">Kategori Mading *</label>
+              <select
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                className="w-full px-4 py-2.5 bg-white border border-slate-300 focus:border-[#659f1d] rounded-xl text-sm text-slate-800 focus:outline-none font-semibold"
+              >
+                {INITIAL_CATEGORIES.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700">Nama Lengkap Siswa *</label>
               <input
                 type="text"
                 value={authorName}
                 onChange={(e) => setAuthorName(e.target.value)}
-                placeholder="Contoh: Ahmad Fauzi"
+                placeholder="Contoh: Ahmad Rizky"
                 className="w-full px-4 py-2.5 bg-white border border-slate-300 focus:border-[#659f1d] rounded-xl text-sm text-slate-800 focus:outline-none"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700">Kelas / Jurusan *</label>
+              <label className="text-xs font-bold text-slate-700">Kelas / Tingkat *</label>
               <input
                 type="text"
                 value={authorClass}
@@ -337,52 +417,46 @@ export default function UploadPage() {
                 className="w-full px-4 py-2.5 bg-white border border-slate-300 focus:border-[#659f1d] rounded-xl text-sm text-slate-800 focus:outline-none"
               />
             </div>
-
-            <div className="sm:col-span-2 space-y-1.5">
-              <label className="text-xs font-bold text-slate-700">Kategori Karya</label>
-              <select
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full px-4 py-2.5 bg-white border border-slate-300 focus:border-[#659f1d] rounded-xl text-sm text-slate-800 focus:outline-none font-semibold"
-              >
-                {INITIAL_CATEGORIES.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name} — {cat.description}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="sm:col-span-2 space-y-1.5">
-              <label className="text-xs font-bold text-slate-700">Deskripsi Ringkat Karya *</label>
-              <textarea
-                rows={3}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Berikan ringkasan singkat tentang latar belakang atau pesan dari karya ini..."
-                className="w-full px-4 py-2.5 bg-white border border-slate-300 focus:border-[#659f1d] rounded-xl text-sm text-slate-800 focus:outline-none"
-              />
-            </div>
-
           </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700">Deskripsi / Latar Belakang Karya *</label>
+            <textarea
+              rows={4}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Jelaskan pesan, makna, atau cerita di balik karya ini..."
+              className="w-full px-4 py-3 bg-white border border-slate-300 focus:border-[#659f1d] rounded-xl text-sm text-slate-800 focus:outline-none"
+            />
+          </div>
+
         </div>
 
-        {/* Error Alert */}
+        {/* Error Notification */}
         {errorMessage && (
-          <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl font-bold">
-            {errorMessage}
+          <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 font-bold">
+            ⚠️ {errorMessage}
           </div>
         )}
 
         {/* Submit Button */}
-        <div className="pt-4 border-t border-slate-200 flex justify-end">
+        <div className="pt-4 border-t border-[#e2ebd5]">
           <button
             type="submit"
             disabled={isSubmitting || isUploadingFile}
-            className="px-6 py-3 bg-[#659f1d] hover:bg-[#548716] text-white font-extrabold text-sm rounded-xl shadow-md shadow-[#659f1d]/30 flex items-center gap-2 transition-all disabled:opacity-50"
+            className="w-full py-3.5 bg-[#659f1d] hover:bg-[#548716] disabled:bg-slate-300 text-white font-extrabold text-sm rounded-2xl shadow-lg shadow-[#659f1d]/20 flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
           >
-            <Send className="w-4 h-4" />
-            <span>{isSubmitting ? 'Mengirim Karya...' : 'Kirim Karya untuk Verifikasi Admin'}</span>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>Mengirim Karya...</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-5 h-5" />
+                <span>Kirim Karya untuk Verifikasi Admin</span>
+              </>
+            )}
           </button>
         </div>
 
