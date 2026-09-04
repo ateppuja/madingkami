@@ -62,7 +62,7 @@ export const karyaService = {
       if (categoryId) params.append('category_id', categoryId);
       if (search && search.trim()) params.append('search', search.trim());
 
-      const res = await fetch(`/api/karya?${params.toString()}`);
+      const res = await fetch(`/api/karya?${params.toString()}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         return data;
@@ -90,7 +90,7 @@ export const karyaService = {
   // Fetch pending karya for Admin Moderation queue
   async getPendingKarya(): Promise<Karya[]> {
     try {
-      const res = await fetch('/api/karya?status=pending');
+      const res = await fetch('/api/karya?status=pending', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         return data;
@@ -104,7 +104,7 @@ export const karyaService = {
   // Fetch all karya (Admin or Student view)
   async getAllKarya(): Promise<Karya[]> {
     try {
-      const res = await fetch('/api/karya');
+      const res = await fetch('/api/karya', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         return data;
@@ -118,7 +118,7 @@ export const karyaService = {
   // Fetch single karya by ID
   async getKaryaById(id: string): Promise<Karya | null> {
     try {
-      const res = await fetch(`/api/karya/${id}`);
+      const res = await fetch(`/api/karya/${id}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         return data;
@@ -276,7 +276,7 @@ export const karyaService = {
   // --- COMMENTS FEATURE ---
   async getCommentsByKaryaId(karyaId: string): Promise<Comment[]> {
     try {
-      const res = await fetch(`/api/comments?karya_id=${karyaId}`);
+      const res = await fetch(`/api/comments?karya_id=${karyaId}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         return data;

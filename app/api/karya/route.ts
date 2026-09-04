@@ -3,6 +3,8 @@ import { query } from '@/lib/db';
 import { Karya } from '@/lib/types';
 import crypto from 'crypto';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -63,7 +65,9 @@ export async function GET(request: Request) {
       updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : new Date().toISOString(),
     }));
 
-    return NextResponse.json(mappedList);
+    return NextResponse.json(mappedList, {
+      headers: { 'Cache-Control': 'no-store' },
+    });
   } catch (error: any) {
     console.error('API /api/karya GET Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
