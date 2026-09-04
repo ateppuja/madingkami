@@ -8,7 +8,7 @@ import GambarViewer from '@/components/viewers/GambarViewer';
 import VideoViewer from '@/components/viewers/VideoViewer';
 import TulisanViewer from '@/components/viewers/TulisanViewer';
 import CommentsSection from '@/components/CommentsSection';
-import { ArrowLeft, Heart, Eye, Calendar, User, Share2, Leaf } from 'lucide-react';
+import { ArrowLeft, Heart, Eye, Calendar, User, Share2, Leaf, Trash2 } from 'lucide-react';
 
 export default function KaryaDetailPage() {
   const params = useParams();
@@ -19,8 +19,13 @@ export default function KaryaDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [likesCount, setLikesCount] = useState(0);
   const [hasLiked, setHasLiked] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    const role = localStorage.getItem('mading_user_role');
+    const isAuth = localStorage.getItem('mading_admin_authenticated') === 'true';
+    setIsAdmin(role === 'admin' && isAuth);
+
     if (id) {
       karyaService.getKaryaById(id).then((data) => {
         if (data) {
@@ -48,6 +53,14 @@ export default function KaryaDetailPage() {
     } else {
       navigator.clipboard.writeText(window.location.href);
       alert('Tautan karya berhasil disalin ke clipboard!');
+    }
+  };
+
+  const handleDeleteByAdmin = async () => {
+    if (!karya) return;
+    if (confirm(`Apakah Anda yakin ingin menghapus permanen karya "${karya.title}"?`)) {
+      await karyaService.deleteKarya(karya.id);
+      router.push('/admin');
     }
   };
 
@@ -86,12 +99,24 @@ export default function KaryaDetailPage() {
           <ArrowLeft className="w-4 h-4" /> Kembali ke Mading
         </button>
 
-        <button
-          onClick={handleShare}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#eef5e4] border border-[#d2e4b8] text-[#548716] hover:bg-[#659f1d] hover:text-white text-xs font-bold transition-all shadow-xs"
-        >
-          <Share2 className="w-4 h-4" /> Bagikan Karya
-        </button>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <button
+              onClick={handleDeleteByAdmin}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 text-xs font-bold transition-all shadow-xs"
+              title="Hapus Karya Permanen (Admin)"
+            >
+              <Trash2 className="w-4 h-4" /> Hapus Karya (Admin)
+            </button>
+          )}
+
+          <button
+            onClick={handleShare}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#eef5e4] border border-[#d2e4b8] text-[#548716] hover:bg-[#659f1d] hover:text-white text-xs font-bold transition-all shadow-xs"
+          >
+            <Share2 className="w-4 h-4" /> Bagikan Karya
+          </button>
+        </div>
       </div>
 
       {/* Header Info Banner */}

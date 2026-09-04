@@ -236,6 +236,24 @@ export const karyaService = {
     return true;
   },
 
+  // Delete Karya (Admin action)
+  async deleteKarya(id: string): Promise<boolean> {
+    const currentList = getLocalKarya();
+    const updated = currentList.filter(k => k.id !== id);
+    saveLocalKarya(updated);
+
+    try {
+      const res = await fetchWithTimeout(`/api/karya/${id}`, {
+        method: 'DELETE',
+      }, 4000);
+      if (res.ok) return true;
+    } catch (err) {
+      console.warn('API delete karya failed, deleted locally', err);
+    }
+
+    return true;
+  },
+
   // Increment likes count
   async incrementLikes(id: string): Promise<number> {
     const list = getLocalKarya();

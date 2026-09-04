@@ -66,10 +66,11 @@ export async function PATCH(
       return NextResponse.json({ likesCount: res.rows[0]?.likes_count || 0 });
     }
 
-    if (body.action === 'toggle_featured') {
+    if (body.action === 'toggle_featured' || body.featured !== undefined) {
+      const isFeatured = body.featured !== undefined ? body.featured : true;
       const res = await query(
-        `UPDATE karya SET featured = NOT COALESCE(featured, false), updated_at = NOW() WHERE id = $1 RETURNING featured`,
-        [id]
+        `UPDATE karya SET featured = $1, updated_at = NOW() WHERE id = $2 RETURNING featured`,
+        [isFeatured, id]
       );
       return NextResponse.json({ featured: Boolean(res.rows[0]?.featured) });
     }
@@ -86,6 +87,20 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error: any) {
     console.error('API /api/karya/[id] PATCH Error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    await query(`DELETE FROM karya WHERE id = $1`, [id]);
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('API /api/karya/[id] DELETE Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

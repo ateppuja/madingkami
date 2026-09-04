@@ -5,7 +5,7 @@ import { karyaService, getLocalKarya } from '@/lib/services/karyaService';
 import { Karya } from '@/lib/types';
 import AdminActionModal from '@/components/admin/AdminActionModal';
 import ChangePasscodeModal from '@/components/admin/ChangePasscodeModal';
-import { ShieldCheck, CheckCircle2, XCircle, Star, Clock, Eye, KeyRound, AlertCircle, Lock } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, XCircle, Star, Clock, Eye, KeyRound, AlertCircle, Lock, Trash2 } from 'lucide-react';
 import { getAdminPasscode, DEFAULT_ADMIN_PASSCODE } from '@/components/AdminPasscodeModal';
 
 export default function AdminPage() {
@@ -109,6 +109,13 @@ export default function AdminPage() {
   const handleUnpublish = async (id: string) => {
     await karyaService.updateKaryaStatus(id, 'pending');
     fetchAdminData();
+  };
+
+  const handleDeleteKarya = async (id: string, title: string) => {
+    if (confirm(`Apakah Anda yakin ingin menghapus permanen karya "${title}"?`)) {
+      await karyaService.deleteKarya(id);
+      fetchAdminData();
+    }
   };
 
   // If unauthenticated, show Passcode Verification Form Screen
@@ -269,20 +276,30 @@ export default function AdminPage() {
                   )}
 
                   {/* Action Buttons */}
-                  <div className="pt-3 border-t border-[#e2ebd5] flex items-center justify-end gap-3">
+                  <div className="pt-3 border-t border-[#e2ebd5] flex flex-wrap items-center justify-between gap-2">
                     <button
-                      onClick={() => openRejectModal(karya)}
-                      className="px-4 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all"
+                      onClick={() => handleDeleteKarya(karya.id, karya.title)}
+                      className="px-3.5 py-2 bg-slate-100 hover:bg-rose-100 border border-slate-200 hover:border-rose-300 text-slate-600 hover:text-rose-700 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all"
+                      title="Hapus Permanen Karya"
                     >
-                      <XCircle className="w-4 h-4" /> Tolak Karya
+                      <Trash2 className="w-3.5 h-3.5" /> Hapus
                     </button>
 
-                    <button
-                      onClick={() => handleApprove(karya.id)}
-                      className="px-5 py-2 bg-[#659f1d] hover:bg-[#548716] text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 shadow-md shadow-[#659f1d]/20 transition-all"
-                    >
-                      <CheckCircle2 className="w-4 h-4" /> Setujui & Terbitkan
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openRejectModal(karya)}
+                        className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all"
+                      >
+                        <XCircle className="w-4 h-4" /> Tolak
+                      </button>
+
+                      <button
+                        onClick={() => handleApprove(karya.id)}
+                        className="px-4 py-2 bg-[#659f1d] hover:bg-[#548716] text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 shadow-md shadow-[#659f1d]/20 transition-all"
+                      >
+                        <CheckCircle2 className="w-4 h-4" /> Setujui
+                      </button>
+                    </div>
                   </div>
 
                 </div>
@@ -316,7 +333,7 @@ export default function AdminPage() {
                       }`}
                     >
                       <Star className="w-3 h-3 fill-current" />
-                      <span>{karya.featured ? 'Disorot (Featured)' : '+ Sorot Karya'}</span>
+                      <span>{karya.featured ? 'Disorot' : '+ Sorot'}</span>
                     </button>
                   </div>
 
@@ -329,15 +346,24 @@ export default function AdminPage() {
                     href={`/karya/${karya.id}`}
                     className="text-[#659f1d] hover:underline flex items-center gap-1"
                   >
-                    <Eye className="w-3.5 h-3.5" /> Lihat di Mading
+                    <Eye className="w-3.5 h-3.5" /> Lihat Mading
                   </a>
 
-                  <button
-                    onClick={() => handleUnpublish(karya.id)}
-                    className="text-slate-400 hover:text-rose-600 underline text-[11px]"
-                  >
-                    Tarik Publikasi
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleUnpublish(karya.id)}
+                      className="text-slate-500 hover:text-amber-700 underline text-[11px]"
+                    >
+                      Tarik
+                    </button>
+                    <button
+                      onClick={() => handleDeleteKarya(karya.id, karya.title)}
+                      className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                      title="Hapus Karya"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
               </div>
