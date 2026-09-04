@@ -6,6 +6,11 @@ import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
+const isValidUUID = (str?: string | null): boolean => {
+  if (!str) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+};
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status');
@@ -28,7 +33,7 @@ export async function GET(request: Request) {
       values.push(typeFilter);
     }
 
-    if (categoryId && categoryId !== 'all') {
+    if (categoryId && categoryId !== 'all' && isValidUUID(categoryId)) {
       sql += ` AND category_id = $${idx++}`;
       values.push(categoryId);
     }
@@ -99,8 +104,8 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const id = body.id || crypto.randomUUID();
-    const categoryId = body.categoryId || null;
+    const id = isValidUUID(body.id) ? body.id : crypto.randomUUID();
+    const categoryId = isValidUUID(body.categoryId) ? body.categoryId : null;
     const title = body.title;
     const description = body.description;
     const authorName = body.authorName;
