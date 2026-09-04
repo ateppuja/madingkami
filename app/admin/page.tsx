@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { karyaService } from '@/lib/services/karyaService';
+import { karyaService, getLocalKarya } from '@/lib/services/karyaService';
 import { Karya } from '@/lib/types';
 import AdminActionModal from '@/components/admin/AdminActionModal';
 import ChangePasscodeModal from '@/components/admin/ChangePasscodeModal';
-import { ShieldCheck, CheckCircle2, XCircle, Star, Clock, Eye, KeyRound, AlertCircle, Lock, Settings } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, XCircle, Star, Clock, Eye, KeyRound, AlertCircle, Lock } from 'lucide-react';
 import { getAdminPasscode, DEFAULT_ADMIN_PASSCODE } from '@/components/AdminPasscodeModal';
 
 export default function AdminPage() {
@@ -14,8 +14,9 @@ export default function AdminPage() {
   const [passcodeError, setPasscodeError] = useState('');
 
   const [activeTab, setActiveTab] = useState<'pending' | 'approved'>('pending');
-  const [karyaList, setKaryaList] = useState<Karya[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Initialize with local data for 0ms instant render
+  const [karyaList, setKaryaList] = useState<Karya[]>(() => getLocalKarya());
+  const [isLoading, setIsLoading] = useState(false);
 
   // Modals
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -36,15 +37,19 @@ export default function AdminPage() {
   }, []);
 
   const fetchAdminData = async () => {
-    setIsLoading(true);
     const data = await karyaService.getAllKarya();
-    setKaryaList(data);
-    setIsLoading(false);
+    if (data && data.length > 0) {
+      setKaryaList(data);
+    }
   };
 
   useEffect(() => {
     if (isAuthenticated) {
       fetchAdminData();
+      const interval = setInterval(() => {
+        fetchAdminData();
+      }, 5000);
+      return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
 

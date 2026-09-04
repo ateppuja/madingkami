@@ -2,23 +2,31 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { karyaService } from '@/lib/services/karyaService';
+import { karyaService, getLocalKarya } from '@/lib/services/karyaService';
 import { Karya } from '@/lib/types';
 import { Clock, CheckCircle2, XCircle, Upload, BookOpen, AlertCircle, ArrowUpRight, Leaf } from 'lucide-react';
 
 export default function StudentDashboardPage() {
-  const [karyaList, setKaryaList] = useState<Karya[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Initialize with local storage data for 0ms instant loading
+  const [karyaList, setKaryaList] = useState<Karya[]>(() => getLocalKarya());
+  const [isLoading, setIsLoading] = useState(false);
 
   const fetchStudentData = async () => {
-    setIsLoading(true);
     const data = await karyaService.getAllKarya();
-    setKaryaList(data);
-    setIsLoading(false);
+    if (data && data.length > 0) {
+      setKaryaList(data);
+    }
   };
 
   useEffect(() => {
     fetchStudentData();
+
+    // Auto polling every 5s to sync latest status updates from admin
+    const interval = setInterval(() => {
+      fetchStudentData();
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const pendingCount = karyaList.filter(k => k.status === 'pending').length;

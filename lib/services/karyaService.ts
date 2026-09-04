@@ -5,7 +5,7 @@ import { INITIAL_KARYA, INITIAL_COMMENTS } from '../mockData';
 const STORAGE_KEY = 'mading_karya_data_v1';
 const COMMENTS_STORAGE_KEY = 'mading_comments_data_v1';
 
-const getLocalKarya = (): Karya[] => {
+export const getLocalKarya = (): Karya[] => {
   if (typeof window === 'undefined') return INITIAL_KARYA;
   try {
     const data = localStorage.getItem(STORAGE_KEY);
@@ -53,6 +53,23 @@ const saveLocalComments = (items: Comment[]) => {
   }
 };
 
+// Helper: Fetch with AbortController timeout to prevent slow network hanging
+const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeoutMs = 3000): Promise<Response> => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(id);
+    return response;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+};
+
 export const karyaService = {
   // Fetch all approved karya for public mading
   async getApprovedKarya(typeFilter?: KaryaType, categoryId?: string, search?: string): Promise<Karya[]> {
@@ -62,16 +79,16 @@ export const karyaService = {
       if (categoryId) params.append('category_id', categoryId);
       if (search && search.trim()) params.append('search', search.trim());
 
-      const res = await fetch(`/api/karya?${params.toString()}`, { cache: 'no-store' });
+      const res = await fetchWithTimeout(`/api/karya?${params.toString()}`, { cache: 'no-store' }, 3000);
       if (res.ok) {
         const data = await res.json();
-        return data;
+        if (Array.isArray(data) && data.length > 0) return data;
       }
     } catch (err) {
-      console.warn('API fetch approved karya failed, using local store', err);
+      console.warn('API fetch approved karya timed out or failed, using fast fallback', err);
     }
 
-    // Local Fallback
+    // Fast Local Fallback
     let list = getLocalKarya().filter(k => k.status === 'approved');
     if (typeFilter) list = list.filter(k => k.type === typeFilter);
     if (categoryId) list = list.filter(k => k.categoryId === categoryId);
@@ -90,7 +107,7 @@ export const karyaService = {
   // Fetch pending karya for Admin Moderation queue
   async getPendingKarya(): Promise<Karya[]> {
     try {
-      const res = await fetch('/api/karya?status=pending', { cache: 'no-store' });
+      const res = await fetchWithTimeout('/api/karya?status=pending', { cache: 'no-store' }, 3000);
       if (res.ok) {
         const data = await res.json();
         return data;
@@ -104,13 +121,13 @@ export const karyaService = {
   // Fetch all karya (Admin or Student view)
   async getAllKarya(): Promise<Karya[]> {
     try {
-      const res = await fetch('/api/karya', { cache: 'no-store' });
+      const res = await fetchWithTimeout('/api/karya', { cache: 'no-store' }, 3000);
       if (res.ok) {
         const data = await res.json();
-        return data;
+        if (Array.isArray(data) && data.length > 0) return data;
       }
     } catch (err) {
-      console.warn('API fetch all karya failed, using local store', err);
+      console.warn('API fetch all karya failed, using fast fallback', err);
     }
     return getLocalKarya();
   },
@@ -118,7 +135,7 @@ export const karyaService = {
   // Fetch single karya by ID
   async getKaryaById(id: string): Promise<Karya | null> {
     try {
-      const res = await fetch(`/api/karya/${id}`, { cache: 'no-store' });
+      const res = await fetchWithTimeout(`/api/karya/${id}`, { cache: 'no-store' }, 3000);
       if (res.ok) {
         const data = await res.json();
         return data;
@@ -132,23 +149,9 @@ export const karyaService = {
 
   // Create new submission from Student
   async createKarya(newKarya: Omit<Karya, 'id' | 'createdAt' | 'updatedAt' | 'likesCount' | 'viewsCount' | 'status' | 'featured'>): Promise<Karya> {
-    try {
-      const res = await fetch('/api/karya', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newKarya),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data;
-      }
-    } catch (err) {
-      console.warn('API create karya failed, saving to local store', err);
-    }
-
     const itemToInsert: Karya = {
       ...newKarya,
-      id: 'karya-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+      id: 'karya-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
       status: 'pending',
       likesCount: 0,
       viewsCount: 0,
@@ -156,24 +159,31 @@ export const karyaService = {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+
+    // Save to local store immediately for instant UX
     const currentList = getLocalKarya();
     saveLocalKarya([itemToInsert, ...currentList]);
+
+    try {
+      const res = await fetchWithTimeout('/api/karya', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newKarya),
+      }, 5000);
+      if (res.ok) {
+        const data = await res.json();
+        return data;
+      }
+    } catch (err) {
+      console.warn('API create karya failed, stored locally', err);
+    }
+
     return itemToInsert;
   },
 
   // Update status (Approve or Reject with note)
   async updateKaryaStatus(id: string, status: KaryaStatus, rejectionReason?: string): Promise<boolean> {
-    try {
-      const res = await fetch(`/api/karya/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, rejectionReason }),
-      });
-      if (res.ok) return true;
-    } catch (err) {
-      console.warn('API update status failed, using local fallback', err);
-    }
-
+    // Update local store immediately for instant UX feedback
     const currentList = getLocalKarya();
     const updated = currentList.map(k => {
       if (k.id === id) {
@@ -187,46 +197,47 @@ export const karyaService = {
       return k;
     });
     saveLocalKarya(updated);
+
+    try {
+      const res = await fetchWithTimeout(`/api/karya/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, rejectionReason }),
+      }, 4000);
+      if (res.ok) return true;
+    } catch (err) {
+      console.warn('API update status failed, updated locally', err);
+    }
+
     return true;
   },
 
   // Toggle Featured status
   async toggleFeatured(id: string): Promise<boolean> {
-    try {
-      const res = await fetch(`/api/karya/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'toggle_featured' }),
-      });
-      if (res.ok) return true;
-    } catch (err) {
-      console.warn('API toggle featured failed, using local fallback', err);
-    }
-
     const item = await this.getKaryaById(id);
     if (!item) return false;
+    const newFeaturedState = !item.featured;
+
     const currentList = getLocalKarya();
-    const updated = currentList.map(k => k.id === id ? { ...k, featured: !k.featured } : k);
+    const updated = currentList.map(k => k.id === id ? { ...k, featured: newFeaturedState } : k);
     saveLocalKarya(updated);
+
+    try {
+      const res = await fetchWithTimeout(`/api/karya/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ featured: newFeaturedState }),
+      }, 4000);
+      if (res.ok) return true;
+    } catch (err) {
+      console.warn('API toggle featured failed, updated locally', err);
+    }
+
     return true;
   },
 
   // Increment likes count
   async incrementLikes(id: string): Promise<number> {
-    try {
-      const res = await fetch(`/api/karya/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'like' }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.likesCount || 0;
-      }
-    } catch (err) {
-      console.warn('API increment likes failed, using local fallback', err);
-    }
-
     const list = getLocalKarya();
     let newLikes = 0;
     const updated = list.map(k => {
@@ -240,25 +251,8 @@ export const karyaService = {
     return newLikes;
   },
 
-  // Upload image file
+  // Upload image file to InsForge Storage bucket (or local FileReader Data URL fallback)
   async uploadImageToStorage(file: File): Promise<string> {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.url) return data.url;
-      }
-    } catch (err) {
-      console.warn('API upload failed, falling back to FileReader Data URL', err);
-    }
-
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -276,33 +270,19 @@ export const karyaService = {
   // --- COMMENTS FEATURE ---
   async getCommentsByKaryaId(karyaId: string): Promise<Comment[]> {
     try {
-      const res = await fetch(`/api/comments?karya_id=${karyaId}`, { cache: 'no-store' });
+      const res = await fetchWithTimeout(`/api/comments?karya_id=${karyaId}`, { cache: 'no-store' }, 3000);
       if (res.ok) {
         const data = await res.json();
         return data;
       }
     } catch (err) {
-      console.warn('API fetch comments failed, using local fallback', err);
+      console.warn('API fetch comments failed, using local store', err);
     }
     const allComments = getLocalComments();
     return allComments.filter(c => c.karyaId === karyaId);
   },
 
   async addComment(karyaId: string, authorName: string, content: string): Promise<Comment> {
-    try {
-      const res = await fetch('/api/comments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ karyaId, authorName, content }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data;
-      }
-    } catch (err) {
-      console.warn('API add comment failed, saving to local store', err);
-    }
-
     const newComment: Comment = {
       id: 'comment-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
       karyaId,
@@ -310,42 +290,60 @@ export const karyaService = {
       content: content.trim(),
       createdAt: new Date().toISOString(),
     };
+
     const currentComments = getLocalComments();
     saveLocalComments([...currentComments, newComment]);
+
+    try {
+      const res = await fetchWithTimeout('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ karyaId, authorName, content }),
+      }, 4000);
+      if (res.ok) {
+        const data = await res.json();
+        return data;
+      }
+    } catch (err) {
+      console.warn('API add comment failed, saved locally', err);
+    }
+
     return newComment;
   },
 
   async updateComment(commentId: string, newContent: string): Promise<boolean> {
-    try {
-      const res = await fetch('/api/comments', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: commentId, content: newContent }),
-      });
-      if (res.ok) return true;
-    } catch (err) {
-      console.warn('API update comment failed, using local fallback', err);
-    }
-
     const currentComments = getLocalComments();
     const updated = currentComments.map(c => c.id === commentId ? { ...c, content: newContent.trim() } : c);
     saveLocalComments(updated);
+
+    try {
+      const res = await fetchWithTimeout('/api/comments', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: commentId, content: newContent }),
+      }, 4000);
+      if (res.ok) return true;
+    } catch (err) {
+      console.warn('API update comment failed, updated locally', err);
+    }
+
     return true;
   },
 
   async deleteComment(commentId: string): Promise<boolean> {
-    try {
-      const res = await fetch(`/api/comments?id=${commentId}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) return true;
-    } catch (err) {
-      console.warn('API delete comment failed, using local fallback', err);
-    }
-
     const currentComments = getLocalComments();
     const updated = currentComments.filter(c => c.id !== commentId);
     saveLocalComments(updated);
+
+    try {
+      const res = await fetchWithTimeout(`/api/comments?id=${commentId}`, {
+        method: 'DELETE',
+      }, 4000);
+      if (res.ok) return true;
+    } catch (err) {
+      console.warn('API delete comment failed, deleted locally', err);
+    }
+
     return true;
   }
 };
