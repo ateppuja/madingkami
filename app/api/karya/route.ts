@@ -1,18 +1,19 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { Karya } from '@/lib/types';
+import { INITIAL_KARYA } from '@/lib/mockData';
 import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
-    const typeFilter = searchParams.get('type');
-    const categoryId = searchParams.get('category_id');
-    const search = searchParams.get('search');
+  const { searchParams } = new URL(request.url);
+  const status = searchParams.get('status');
+  const typeFilter = searchParams.get('type');
+  const categoryId = searchParams.get('category_id');
+  const search = searchParams.get('search');
 
+  try {
     let sql = `SELECT * FROM karya WHERE 1=1`;
     const values: any[] = [];
     let idx = 1;
@@ -66,11 +67,31 @@ export async function GET(request: Request) {
     }));
 
     return NextResponse.json(mappedList, {
-      headers: { 'Cache-Control': 'no-store' },
+      headers: {
+        'Cache-Control': 'no-store, max-age=0, must-revalidate',
+      },
     });
   } catch (error: any) {
-    console.error('API /api/karya GET Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.warn('API /api/karya GET Error (using INITIAL_KARYA fallback):', error);
+
+    // Dynamic Fallback
+    let fallback = INITIAL_KARYA;
+    if (status) fallback = fallback.filter(k => k.status === status);
+    if (typeFilter && typeFilter !== 'all') fallback = fallback.filter(k => k.type === typeFilter);
+    if (categoryId && categoryId !== 'all') fallback = fallback.filter(k => k.categoryId === categoryId);
+    if (search && search.trim()) {
+      const q = search.toLowerCase().trim();
+      fallback = fallback.filter(k => 
+        k.title.toLowerCase().includes(q) ||
+        k.authorName.toLowerCase().includes(q) ||
+        k.authorClass.toLowerCase().includes(q) ||
+        k.description.toLowerCase().includes(q)
+      );
+    }
+
+    return NextResponse.json(fallback, {
+      headers: { 'Cache-Control': 'no-store' },
+    });
   }
 }
 

@@ -1,12 +1,7 @@
 import { Pool, QueryResultRow } from 'pg';
 
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error(
-    'DATABASE_URL belum dikonfigurasi. Tambahkan DATABASE_URL ke .env.local dan environment deployment.'
-  );
-}
+const DEFAULT_DB_URL = 'postgresql://postgres:8e3d1a4f280745feb9d43a0094e24ece@sa4ue85s.ap-southeast.database.insforge.app:5432/insforge?sslmode=require';
+const connectionString = process.env.DATABASE_URL || DEFAULT_DB_URL;
 
 const globalForPg = globalThis as typeof globalThis & { pgPool?: Pool };
 

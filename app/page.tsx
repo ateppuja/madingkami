@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { karyaService } from '@/lib/services/karyaService';
 import { Karya, KaryaType } from '@/lib/types';
@@ -16,8 +16,8 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchKarya = async () => {
-    setIsLoading(true);
+  const fetchKarya = useCallback(async (showLoading = false) => {
+    if (showLoading) setIsLoading(true);
     const data = await karyaService.getApprovedKarya(
       activeType === 'all' ? undefined : activeType,
       selectedCategory === 'all' ? undefined : selectedCategory,
@@ -25,11 +25,24 @@ export default function Home() {
     );
     setKaryaList(data);
     setIsLoading(false);
-  };
+  }, [activeType, selectedCategory, searchQuery]);
 
   useEffect(() => {
-    fetchKarya();
-  }, [activeType, selectedCategory, searchQuery]);
+    fetchKarya(true);
+
+    // Real-time polling every 5 seconds for cross-device sync
+    const interval = setInterval(() => {
+      fetchKarya(false);
+    }, 5000);
+
+    const handleFocus = () => fetchKarya(false);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchKarya]);
 
   const counts = {
     all: karyaList.length,
