@@ -231,6 +231,35 @@ export const karyaService = {
     return itemToInsert;
   },
 
+  // Full Edit Karya (Admin Edit action)
+  async updateKarya(id: string, updatedFields: Partial<Karya>): Promise<boolean> {
+    const currentList = getLocalKarya();
+    const updated = currentList.map(k => {
+      if (k.id === id) {
+        return {
+          ...k,
+          ...updatedFields,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return k;
+    });
+    saveLocalKarya(updated);
+
+    try {
+      const res = await fetchWithTimeout(`/api/karya/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_karya', ...updatedFields }),
+      }, 5000);
+      if (res.ok) return true;
+    } catch (err) {
+      console.warn('API update karya failed, updated locally', err);
+    }
+
+    return true;
+  },
+
   // Update status (Approve or Reject with note)
   async updateKaryaStatus(id: string, status: KaryaStatus, rejectionReason?: string): Promise<boolean> {
     const currentList = getLocalKarya();

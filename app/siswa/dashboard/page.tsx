@@ -4,12 +4,33 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { karyaService, getLocalKarya } from '@/lib/services/karyaService';
 import { Karya } from '@/lib/types';
-import { Clock, CheckCircle2, XCircle, Upload, BookOpen, AlertCircle, ArrowUpRight, Leaf } from 'lucide-react';
+import EditKaryaModal from '@/components/admin/EditKaryaModal';
+import { Clock, CheckCircle2, XCircle, Upload, BookOpen, AlertCircle, ArrowUpRight, ShieldCheck, Edit3, Trash2 } from 'lucide-react';
 
 export default function StudentDashboardPage() {
   // Initialize with local storage data for 0ms instant loading
   const [karyaList, setKaryaList] = useState<Karya[]>(() => getLocalKarya());
   const [isLoading, setIsLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Edit Modal State
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedKarya, setSelectedKarya] = useState<Karya | null>(null);
+
+  useEffect(() => {
+    const role = localStorage.getItem('mading_user_role');
+    const isAuth = localStorage.getItem('mading_admin_authenticated') === 'true';
+    setIsAdmin(role === 'admin' && isAuth);
+
+    const handleRoleChange = () => {
+      const currentRole = localStorage.getItem('mading_user_role');
+      const currentAuth = localStorage.getItem('mading_admin_authenticated') === 'true';
+      setIsAdmin(currentRole === 'admin' && currentAuth);
+    };
+
+    window.addEventListener('mading_role_changed', handleRoleChange);
+    return () => window.removeEventListener('mading_role_changed', handleRoleChange);
+  }, []);
 
   const fetchStudentData = async () => {
     const data = await karyaService.getAllKarya();
@@ -28,6 +49,24 @@ export default function StudentDashboardPage() {
 
     return () => clearInterval(interval);
   }, []);
+
+  const handleOpenEdit = (karya: Karya) => {
+    setSelectedKarya(karya);
+    setEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async (updatedFields: Partial<Karya>) => {
+    if (!selectedKarya) return;
+    await karyaService.updateKarya(selectedKarya.id, updatedFields);
+    fetchStudentData();
+  };
+
+  const handleDeleteKarya = async (id: string, title: string) => {
+    if (confirm(`Apakah Anda yakin ingin menghapus permanen karya "${title}"?`)) {
+      await karyaService.deleteKarya(id);
+      fetchStudentData();
+    }
+  };
 
   const pendingCount = karyaList.filter(k => k.status === 'pending').length;
   const approvedCount = karyaList.filter(k => k.status === 'approved').length;
@@ -48,13 +87,21 @@ export default function StudentDashboardPage() {
           </p>
         </div>
 
-        <Link
-          href="/upload"
-          className="px-5 py-2.5 bg-[#659f1d] hover:bg-[#548716] text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-[#659f1d]/20 flex items-center justify-center gap-2 transition-all"
-        >
-          <Upload className="w-4 h-4" />
-          <span>+ Upload Karya Baru</span>
-        </Link>
+        <div className="flex items-center gap-3">
+          {isAdmin && (
+            <span className="px-3 py-1.5 bg-[#659f1d] text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 shadow-sm">
+              <ShieldCheck className="w-4 h-4" /> Mode Akses Admin Aktif
+            </span>
+          )}
+
+          <Link
+            href="/upload"
+            className="px-5 py-2.5 bg-[#659f1d] hover:bg-[#548716] text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-[#659f1d]/20 flex items-center justify-center gap-2 transition-all"
+          >
+            <Upload className="w-4 h-4" />
+            <span>+ Upload Karya Baru</span>
+          </Link>
+        </div>
       </div>
 
       {/* Summary Counters (WhiteBee UI Card Style) */}
@@ -126,10 +173,11 @@ export default function StudentDashboardPage() {
                     </div>
                     <h3 className="font-extrabold text-lg text-slate-800">{karya.title}</h3>
                     <p className="text-xs text-slate-600 line-clamp-1">{karya.description}</p>
+                    <p className="text-[11px] text-[#548716] font-bold">Kreator: {karya.authorName} ({karya.authorClass})</p>
                   </div>
 
-                  {/* Status Badge */}
-                  <div className="flex items-center gap-2">
+                  {/* Status Badge & Admin Edit/Delete Controls */}
+                  <div className="flex flex-wrap items-center gap-2">
                     {karya.status === 'pending' && (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 font-bold text-xs rounded-full">
                         <Clock className="w-3.5 h-3.5" />
@@ -149,6 +197,29 @@ export default function StudentDashboardPage() {
                         <XCircle className="w-3.5 h-3.5" />
                         <span>Ditolak Admin</span>
                       </span>
+                    )}
+
+                    {/* ADMIN EDIT AND DELETE BUTTONS */}
+                    {isAdmin && (
+                      <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+                        <button
+                          onClick={() => handleOpenEdit(karya)}
+                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-[#eef5e4] text-slate-700 hover:text-[#548716] rounded-xl text-xs font-bold transition-all border border-slate-200 flex items-center gap-1"
+                          title="Edit Karya (Admin)"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-[#659f1d]" />
+                          <span>Edit</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteKarya(karya.id, karya.title)}
+                          className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition-all border border-rose-200 flex items-center gap-1"
+                          title="Hapus Karya (Admin)"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Hapus</span>
+                        </button>
+                      </div>
                     )}
 
                     {karya.status === 'approved' && (
@@ -181,6 +252,14 @@ export default function StudentDashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Edit Karya Modal */}
+      <EditKaryaModal
+        isOpen={editModalOpen}
+        karya={selectedKarya}
+        onClose={() => { setEditModalOpen(false); setSelectedKarya(null); }}
+        onSave={handleSaveEdit}
+      />
 
     </div>
   );

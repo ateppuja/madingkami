@@ -4,6 +4,11 @@ import { Karya } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
+const isValidUUID = (str?: string | null): boolean => {
+  if (!str) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+};
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -75,12 +80,38 @@ export async function PATCH(
       return NextResponse.json({ featured: Boolean(res.rows[0]?.featured) });
     }
 
-    if (body.status) {
+    if (body.status && !body.title) {
       const { status, rejectionReason } = body;
       await query(
         `UPDATE karya SET status = $1, rejection_reason = $2, updated_at = NOW() WHERE id = $3`,
         [status, rejectionReason || null, id]
       );
+      return NextResponse.json({ success: true });
+    }
+
+    // Full Edit Karya Action
+    if (body.action === 'update_karya' || body.title) {
+      const { title, description, authorName, authorClass, categoryId, type, contentUrl, mediaUrls, textContent, status } = body;
+      const validCategoryId = isValidUUID(categoryId) ? categoryId : null;
+      const mediaUrlsJson = mediaUrls ? JSON.stringify(mediaUrls) : null;
+
+      await query(
+        `UPDATE karya SET
+          title = COALESCE($1, title),
+          description = COALESCE($2, description),
+          author_name = COALESCE($3, author_name),
+          author_class = COALESCE($4, author_class),
+          category_id = COALESCE($5, category_id),
+          type = COALESCE($6, type),
+          content_url = COALESCE($7, content_url),
+          media_urls = COALESCE($8, media_urls),
+          text_content = COALESCE($9, text_content),
+          status = COALESCE($10, status),
+          updated_at = NOW()
+        WHERE id = $11`,
+        [title, description, authorName, authorClass, validCategoryId, type, contentUrl, mediaUrlsJson, textContent, status, id]
+      );
+
       return NextResponse.json({ success: true });
     }
 
